@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Investing Journal</title>
+<meta name="description" content="Investing Journal — a plain investing journal. Essays, listed plainly.">
+<style>
+  html { color-scheme: light; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: Georgia, "Times New Roman", Times, serif;
+    font-size: 18px;
+    line-height: 1.7;
+    color: #111;
+    background: #fff;
+    width: 100%;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 3.5rem 2rem 4rem;
+  }
+  a { color: #111; }
+  a:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+
+  header {
+    text-align: center;
+    margin-bottom: 3.5rem;
+  }
+  header .logo {
+    font-size: 2.1em;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    line-height: 1.15;
+    margin: 0;
+  }
+  header .logo a { text-decoration: none; }
+
+  h2 { font-size: 1.25em; font-weight: normal; line-height: 1.3; margin: 0 0 0.9em; }
+  p { margin: 0 0 1.1em; }
+  p:last-child { margin-bottom: 0; }
+
+  ul.essays {
+    margin: 0;
+    padding-left: 1.4em;
+  }
+  ul.essays li { margin-bottom: 0.6em; }
+  ul.essays li:last-child { margin-bottom: 0; }
+
+  /* A light dotted grey line divides the bullet list from the first essay
+     and each essay from the next. */
+  article { margin-top: 3rem; padding-top: 2.75rem; border-top: 1px dotted #b5b5b5; }
+  article h1 { font-size: 1.6em; font-weight: normal; line-height: 1.3; margin: 0 0 0.4em; }
+  article .date { font-style: italic; margin-bottom: 1.6em; }
+  article h2 { margin-top: 1.8em; }
+  article h3 { font-size: 1.05em; font-weight: normal; line-height: 1.35; margin: 1.8em 0 0.6em; }
+
+  figure { margin: 0 0 1.4em; }
+  figure img { display: block; max-width: 100%; height: auto; }
+  figcaption { font-size: 0.85em; line-height: 1.55; margin-top: 0.5em; }
+
+  .table-wrap { margin: 0 0 1.1em; }
+  table { border-collapse: collapse; font-size: 0.82em; line-height: 1.45; width: 100%; }
+  th, td { text-align: left; vertical-align: top; padding: 0.35em 0.9em 0.35em 0; border-bottom: 1px solid #ccc; }
+  th:last-child, td:last-child { padding-right: 0; }
+  th { font-weight: normal; font-style: italic; }
+
+  .back { margin-top: 2.5rem; }
+
+  @media (max-width: 560px) {
+    body { font-size: 17px; padding: 2.5rem 1.5rem 3rem; }
+    header { margin-bottom: 2.75rem; }
+    article { margin-top: 2.5rem; padding-top: 2.25rem; }
+    table { font-size: 0.78em; }
+    th, td { padding-right: 0.55em; }
+  }
+</style>
+</head>
+<body>
+
+<header id="top">
+  <p class="logo"><a href="#top">Investing Journal</a></p>
+</header>
+
+<main>
+
+  <section id="essays" aria-labelledby="essays-heading">
+    <h2 id="essays-heading">Essays</h2>
+    <ul class="essays">
+      <li data-date="2026-10-24"><a href="#klarna">Klarna: AMEX for the Intelligence Era</a> — October 24, 2026</li>
+    </ul>
+  </section>
+
+  <!--
+    How this page is kept, for whoever maintains it:
+    Essays are a single flat bullet list under the Essays heading — never
+    grouped, never given their own sections. Each bullet is the essay's
+    title and its publish date, with the title linked to the essay:
+
+    <li><a href="#ESSAY-ANCHOR">ESSAY TITLE</a> — PUBLISH DATE</li>
+
+    Each essay lives further down this same page as an <article> whose id
+    matches the bullet's anchor, so clicking a bullet scrolls to the essay.
+    Never invent a date. Never edit a published essay; append a dated
+    update to it instead.
+
+    Ordering rule (locked in): newest first. Each new bullet is inserted
+    at the TOP of the list above, and its article is placed in the same
+    newest-first order below — the newest article ahead of the older ones.
+    Give every new bullet and its article a data-date="YYYY-MM-DD" with
+    the publish date; the script at the end of this page sorts both the
+    list and the articles by that date, newest first, so the order holds
+    even if an essay is added in the wrong place.
+
+    Every article is divided from what sits above it — the bullet list or
+    the previous essay — by a light dotted grey line (the article's top
+    border in the stylesheet), and every essay ends with a Back to top
+    button:
+
+    <p class="back"><a href="#top">↑ Back to top</a></p>
+  -->
+
+  <article id="klarna" data-date="2026-10-24" aria-labelledby="klarna-title">
+    <h1 id="klarna-title">Klarna: AMEX for the Intelligence Era</h1>
+    <p class="date"><time datetime="2026-10-24">October 24, 2026</time></p>
+
+    <h2>Thesis</h2>
+
+    <p>Klarna is a next-generation American Express in the making: a closed-loop network that is part bank, part payment network, part card issuer. The closest comp is Amex — network plus issuer plus lender — plus a deposit franchise. Licensed as a bank in Sweden since 2017; in the US it lends through partner banks.</p>
+
+    <p>The upside, on 2032 exit multiples on gross profit: at 12x transaction margin — about Affirm's multiple — $100B of equity value (about $256 a share) needs 2032 transaction margin of about $8.3B. From 2027's estimated $2.2B, that is about 31% a year for five years. At a Robinhood-like 18x, the same $100B needs only about $5.6B, about 21% a year. The card-led path reaches $8.7B by 2031 — the bull case is card delivery at a lender's multiple, not multiple expansion.</p>
+
+    <p>The network effect is the thesis. 120 million consumers, 1.2 million merchants (Exhibit 1). Every transaction improves underwriting and makes the network more valuable to the next merchant. Klarna no longer wins merchants one by one. Stripe, Nexi, JPMorgan Payments, and Fiserv's Clover now switch Klarna on by default, so their merchants get it automatically — merchant count rose from 966,000 to 1.2 million in two quarters. Walmart adds the same through OnePay.</p>
+
+    <p>The card converts that network into economics. Card users grew from 1.3 million (Q2 2025) to 6.5 million (Q2 2026), and a card user generates about $130 of revenue versus about $28 for the average consumer — nearly 5x (Exhibits 3, 6). Deposits cover 116% of receivables.</p>
+
+    <p>Profitability is two quarters old, not a track record. Operating income was negative through 2024–2025 except Q3 2024, then +$17M and +$27M in Q1 and Q2 2026. Transaction margin grew 42% year over year in Q2 against revenue up 27% — the gap is operating leverage. (FY2024's profit was an asset sale.)</p>
+
+    <p>Valuation is the other half. At $12.81, Klarna is worth about $4.8B — about 0.9x forward sales and 2.2x forward transaction margin (2027 estimates: revenue about $5.2B, transaction margin about $2.2B, up 32%). Affirm trades at about 4.4x forward sales and 8.9x forward gross profit; Dave at 5.3x and 7.4x; Chime at 3.6x and 4.0x (Exhibits 2–5).</p>
+
+    <p>What has to go right: provisions at or below 0.50% of GMV, US lending economics intact, no severe credit cycle, 4–7x card adoption, and contained dilution. The kill criteria are in the appendix; any two together force a re-underwrite.</p>
+
+    <h2>Management: Sebastian Siemiatkowski</h2>
+
+    <p>Klarna is still founder-led. Sebastian Siemiatkowski co-founded it in Stockholm in 2005 at 23 and has been CEO for 21 years — through profitable first 14 years, a Swedish banking licence in 2017, and the $45.6 billion to $6.7 billion collapse of 2021–22. He holds about 7.5%, sold nothing at the IPO, and bought about $10 million more at $14.37 on August 26, 2026, eight days after the guidance-cut crash.</p>
+
+    <p>His decade-old vision is a digital financial assistant: you wake up, it has analysed your mortgage while you slept, found you are overpaying by $30 a month, already negotiated the switch, paperwork done — all you do is say yes. He likens the timing to self-driving cars: you do not see them, then suddenly you are in a Waymo. The card, charter, savings, memberships, and Invest are all building toward that end-state, which is still mostly promise. He frames Klarna the way Amex framed itself — not a bank in consumers' minds, but a lifestyle brand with a card, referenced nine times in 51 minutes at Bernstein in May 2026 — with a wedge of fashion and beauty, $100–200 purchases, then big-ticket financing, then everyday spend, and a stated ambition to become one of the major retail banks in the world.</p>
+
+    <h2>Appendix: Exhibits</h2>
+
+    <p>Sources: company filings; market caps at October 23, 2026 closes. Forward estimates are labeled by source.</p>
+
+    <h3>Exhibit 1 — Active consumers</h3>
+    <figure>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNjQwIDMwMCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSwgQXJpYWwsIHNhbnMtc2VyaWYiPgo8cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2ZmZiIvPgo8dGV4dCB4PSIxNiIgeT0iMjgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSJib2xkIj5BY3RpdmUgY29uc3VtZXJzPC90ZXh0Pgo8dGV4dCB4PSIxNiIgeT0iNDgiIGZvbnQtc2l6ZT0iMTMiPk1pbGxpb25zLCB0cmFpbGluZyB0d2VsdmUgbW9udGhzPC90ZXh0Pgo8cmVjdCB4PSIxNiIgeT0iNTgiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSIzMCIgeT0iNjgiIGZvbnQtc2l6ZT0iMTIiPkFjdGl2ZSBjb25zdW1lcnM8L3RleHQ+CjxsaW5lIHgxPSIxNiIgeTE9IjI1OCIgeDI9IjYyNCIgeTI9IjI1OCIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPHJlY3QgeD0iMTYiIHk9IjEyNSIgd2lkdGg9IjEzNCIgaGVpZ2h0PSIxMzMiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iODMiIHk9IjExOSIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjg0TTwvdGV4dD4KPHRleHQgeD0iODMiIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+MjAyMzwvdGV4dD4KPHJlY3QgeD0iMTc0IiB5PSIxMTEiIHdpZHRoPSIxMzQiIGhlaWdodD0iMTQ3IiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjI0MSIgeT0iMTA1IiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+OTNNPC90ZXh0Pgo8dGV4dCB4PSIyNDEiIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+MjAyNDwvdGV4dD4KPHJlY3QgeD0iMzMyIiB5PSI3MSIgd2lkdGg9IjEzNCIgaGVpZ2h0PSIxODciIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iMzk5IiB5PSI2NSIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjExOE08L3RleHQ+Cjx0ZXh0IHg9IjM5OSIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4yMDI1PC90ZXh0Pgo8cmVjdCB4PSI0OTAiIHk9IjY4IiB3aWR0aD0iMTM0IiBoZWlnaHQ9IjE5MCIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSI1NTciIHk9IjYyIiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+MTIwTTwvdGV4dD4KPHRleHQgeD0iNTU3IiB5PSIyNzQiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlEyIDIwMjY8L3RleHQ+Cjx0ZXh0IHg9IjE2IiB5PSIyOTQiIGZvbnQtc2l6ZT0iMTIiPlNvdXJjZTogQ29tcGFueSBmaWxpbmdzLjwvdGV4dD4KPC9zdmc+" alt="Bar chart: active consumers, 84 million in 2023, 93 million in 2024, 118 million in 2025, 120 million in Q2 2026">
+      <figcaption>Trailing-twelve-month active consumers. The consumer side of the network.</figcaption>
+    </figure>
+
+    <h3>Exhibit 2 — Equity value per user</h3>
+    <figure>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNjQwIDMwMCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSwgQXJpYWwsIHNhbnMtc2VyaWYiPgo8cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2ZmZiIvPgo8dGV4dCB4PSIxNiIgeT0iMjgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSJib2xkIj5FcXVpdHkgdmFsdWUgcGVyIHVzZXI8L3RleHQ+Cjx0ZXh0IHg9IjE2IiB5PSI0OCIgZm9udC1zaXplPSIxMyI+VVNELCBsaW5lYXIgc2NhbGU8L3RleHQ+CjxyZWN0IHg9IjE2IiB5PSI1OCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjMwIiB5PSI2OCIgZm9udC1zaXplPSIxMiI+RXF1aXR5IHZhbHVlIHBlciB1c2VyPC90ZXh0Pgo8bGluZSB4MT0iMTYiIHkxPSIyNTgiIHgyPSI2MjQiIHkyPSIyNTgiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxyZWN0IHg9IjE2IiB5PSIyNTMiIHdpZHRoPSIxMzQiIGhlaWdodD0iNSIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSI4MyIgeT0iMjQ3IiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+JDQwPC90ZXh0Pgo8dGV4dCB4PSI4MyIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5LbGFybmE8L3RleHQ+CjxyZWN0IHg9IjE3NCIgeT0iMTQ4IiB3aWR0aD0iMTM0IiBoZWlnaHQ9IjExMCIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSIyNDEiIHk9IjE0MiIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiQ4NTE8L3RleHQ+Cjx0ZXh0IHg9IjI0MSIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BZmZpcm08L3RleHQ+CjxyZWN0IHg9IjMzMiIgeT0iMTE2IiB3aWR0aD0iMTM0IiBoZWlnaHQ9IjE0MiIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSIzOTkiIHk9IjExMCIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiQxLDA5NjwvdGV4dD4KPHRleHQgeD0iMzk5IiB5PSIyNzQiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkNoaW1lPC90ZXh0Pgo8cmVjdCB4PSI0OTAiIHk9IjY4IiB3aWR0aD0iMTM0IiBoZWlnaHQ9IjE5MCIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSI1NTciIHk9IjYyIiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+JDEsNDY4PC90ZXh0Pgo8dGV4dCB4PSI1NTciIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RGF2ZTwvdGV4dD4KPHRleHQgeD0iMTYiIHk9IjI5NCIgZm9udC1zaXplPSIxMiI+U291cmNlOiBDb21wYW55IGZpbGluZ3M7IG1hcmtldCBjYXBzIE9jdCAyMywgMjAyNi48L3RleHQ+Cjwvc3ZnPg==" alt="Bar chart: equity value per user — Klarna $40, Affirm $851, Chime $1,096, Dave $1,468">
+      <figcaption>Linear scale. Klarna's bar is barely visible at this scale — that is the point.</figcaption>
+    </figure>
+
+    <h3>Exhibit 3 — Revenue per user</h3>
+    <figure>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNjQwIDMwMCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSwgQXJpYWwsIHNhbnMtc2VyaWYiPgo8cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2ZmZiIvPgo8dGV4dCB4PSIxNiIgeT0iMjgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSJib2xkIj5SZXZlbnVlIHBlciB1c2VyPC90ZXh0Pgo8dGV4dCB4PSIxNiIgeT0iNDgiIGZvbnQtc2l6ZT0iMTMiPlVTRCwgdHJhaWxpbmcgdHdlbHZlIG1vbnRoczwvdGV4dD4KPHJlY3QgeD0iMTYiIHk9IjU4IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iMzAiIHk9IjY4IiBmb250LXNpemU9IjEyIj5SZXZlbnVlIHBlciB1c2VyPC90ZXh0Pgo8bGluZSB4MT0iMTYiIHkxPSIyNTgiIHgyPSI2MjQiIHkyPSIyNTgiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxyZWN0IHg9IjE2IiB5PSIyMzEiIHdpZHRoPSIxMDIiIGhlaWdodD0iMjciIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iNjciIHk9IjIyNSIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiQzNDwvdGV4dD4KPHRleHQgeD0iNjciIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S2xhcm5hPC90ZXh0Pgo8cmVjdCB4PSIxNDIiIHk9IjE1MyIgd2lkdGg9IjEwMiIgaGVpZ2h0PSIxMDUiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iMTkzIiB5PSIxNDciIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4kMTMwPC90ZXh0Pgo8dGV4dCB4PSIxOTMiIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S2xhcm5hIGNhcmQ8L3RleHQ+CjxyZWN0IHg9IjI2OCIgeT0iMTM1IiB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEyMyIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSIzMTkiIHk9IjEyOSIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiQxNTM8L3RleHQ+Cjx0ZXh0IHg9IjMxOSIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BZmZpcm08L3RleHQ+CjxyZWN0IHg9IjM5NCIgeT0iNzgiIHdpZHRoPSIxMDIiIGhlaWdodD0iMTgwIiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjQ0NSIgeT0iNzIiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4kMjI0PC90ZXh0Pgo8dGV4dCB4PSI0NDUiIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RGF2ZTwvdGV4dD4KPHJlY3QgeD0iNTIwIiB5PSI2OCIgd2lkdGg9IjEwMiIgaGVpZ2h0PSIxOTAiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iNTcxIiB5PSI2MiIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPiQyMzY8L3RleHQ+Cjx0ZXh0IHg9IjU3MSIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DaGltZTwvdGV4dD4KPHRleHQgeD0iMTYiIHk9IjI5NCIgZm9udC1zaXplPSIxMiI+U291cmNlOiBDb21wYW55IGZpbGluZ3MuIEtsYXJuYSBjYXJkOiBRMyAyMDI1IHByZXNlbnRhdGlvbiwgcmV2ZW51ZSBwZXIgY2FyZCB1c2VyOyBvdGhlciBiYXJzOiBUVE0gcmV2ZW51ZSBwZXIgdXNlci48L3RleHQ+Cjwvc3ZnPg==" alt="Bar chart: revenue per user, trailing twelve months — Klarna $34, Klarna card $130, Affirm $153, Dave $224, Chime $236">
+      <figcaption>Revenue per user, trailing twelve months. Klarna card is the Q3 2025 presentation figure (revenue per card user); other bars are TTM revenue per user.</figcaption>
+    </figure>
+
+    <h3>Exhibit 4 — Transaction profit by quarter</h3>
+    <figure>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI3MjAiIGhlaWdodD0iNDIwIiB2aWV3Qm94PSIwIDAgNzIwIDQyMCIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgLWFwcGxlLXN5c3RlbSwgc2Fucy1zZXJpZiI+CiAgPHJlY3Qgd2lkdGg9IjcyMCIgaGVpZ2h0PSI0MjAiIGZpbGw9IndoaXRlIi8+CiAgPHRleHQgeD0iMzYwIiB5PSIyOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iYmxhY2siPlRyYW5zYWN0aW9uIG1hcmdpbiBieSBxdWFydGVyPC90ZXh0PgogIDx0ZXh0IHg9IjM2MCIgeT0iNTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTMiIGZpbGw9ImJsYWNrIj5UcmFuc2FjdGlvbiBtYXJnaW4gZG9sbGFycywgJCBtaWxsaW9ucyDigJQgUTEgMjAyNCB0byBRMiAyMDI2PC90ZXh0PgogIDxyZWN0IHg9IjI4OCIgeT0iNjIiIHdpZHRoPSIxMiIgaGVpZ2h0PSIxMiIgZmlsbD0iYmxhY2siLz4KICA8dGV4dCB4PSIzMDYiIHk9IjcyIiBmb250LXNpemU9IjEyIiBmaWxsPSJibGFjayI+VHJhbnNhY3Rpb24gbWFyZ2luICgkTSk8L3RleHQ+CiAgPGxpbmUgeDE9IjYwIiB5MT0iMzQwIiB4Mj0iNjgwIiB5Mj0iMzQwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8dGV4dCB4PSI1MCIgeT0iMzQ0IiB0ZXh0LWFuY2hvcj0iZW5kIiBmb250LXNpemU9IjExIiBmaWxsPSJibGFjayI+MDwvdGV4dD4KICA8dGV4dCB4PSI1MCIgeT0iMjk0IiB0ZXh0LWFuY2hvcj0iZW5kIiBmb250LXNpemU9IjExIiBmaWxsPSJibGFjayI+MTAwPC90ZXh0PgogIDx0ZXh0IHg9IjUwIiB5PSIyNDQiIHRleHQtYW5jaG9yPSJlbmQiIGZvbnQtc2l6ZT0iMTEiIGZpbGw9ImJsYWNrIj4yMDA8L3RleHQ+CiAgPHRleHQgeD0iNTAiIHk9IjE5NCIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPjMwMDwvdGV4dD4KICA8dGV4dCB4PSI1MCIgeT0iMTQ0IiB0ZXh0LWFuY2hvcj0iZW5kIiBmb250LXNpemU9IjExIiBmaWxsPSJibGFjayI+NDAwPC90ZXh0PgogIDx0ZXh0IHg9IjUwIiB5PSI5NCIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPjUwMDwvdGV4dD4KICA8cmVjdCB4PSI3MSIgeT0iMjAxLjUiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxMzguNSIgZmlsbD0iYmxhY2siLz4KICA8dGV4dCB4PSI5MSIgeT0iMTk1LjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4yNzc8L3RleHQ+CiAgPHJlY3QgeD0iMTMzIiB5PSIxODYiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxNTQiIGZpbGw9ImJsYWNrIi8+CiAgPHRleHQgeD0iMTUzIiB5PSIxODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4zMDg8L3RleHQ+CiAgPHJlY3QgeD0iMTk1IiB5PSIxODIiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxNTgiIGZpbGw9ImJsYWNrIi8+CiAgPHRleHQgeD0iMjE1IiB5PSIxNzYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4zMTY8L3RleHQ+CiAgPHJlY3QgeD0iMjU3IiB5PSIxODEuNSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjE1OC41IiBmaWxsPSJibGFjayIvPgogIDx0ZXh0IHg9IjI3NyIgeT0iMTc1LjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4zMTc8L3RleHQ+CiAgPHJlY3QgeD0iMzE5IiB5PSIyMDQuNSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjEzNS41IiBmaWxsPSJibGFjayIvPgogIDx0ZXh0IHg9IjMzOSIgeT0iMTk4LjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4yNzE8L3RleHQ+CiAgPHJlY3QgeD0iMzgxIiB5PSIxODIuNSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjE1Ny41IiBmaWxsPSJibGFjayIvPgogIDx0ZXh0IHg9IjQwMSIgeT0iMTc2LjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4zMTU8L3RleHQ+CiAgPHJlY3QgeD0iNDQzIiB5PSIyMDAiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxNDAiIGZpbGw9ImJsYWNrIi8+CiAgPHRleHQgeD0iNDYzIiB5PSIxOTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4yODA8L3RleHQ+CiAgPHJlY3QgeD0iNTA1IiB5PSIxNTQiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxODYiIGZpbGw9ImJsYWNrIi8+CiAgPHRleHQgeD0iNTI1IiB5PSIxNDgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4zNzI8L3RleHQ+CiAgPHJlY3QgeD0iNTY3IiB5PSIxNDUuNSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjE5NC41IiBmaWxsPSJibGFjayIvPgogIDx0ZXh0IHg9IjU4NyIgeT0iMTM5LjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj4zODk8L3RleHQ+CiAgPHJlY3QgeD0iNjI5IiB5PSIxMTciIHdpZHRoPSI0MCIgaGVpZ2h0PSIyMjMiIGZpbGw9ImJsYWNrIi8+CiAgPHRleHQgeD0iNjQ5IiB5PSIxMTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9ImJsYWNrIj40NDY8L3RleHQ+CiAgPHRleHQgeD0iOTEiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlExICcyNDwvdGV4dD4KICA8dGV4dCB4PSIxNTMiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlEyICcyNDwvdGV4dD4KICA8dGV4dCB4PSIyMTUiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlEzICcyNDwvdGV4dD4KICA8dGV4dCB4PSIyNzciIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlE0ICcyNDwvdGV4dD4KICA8dGV4dCB4PSIzMzkiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlExICcyNTwvdGV4dD4KICA8dGV4dCB4PSI0MDEiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlEyICcyNTwvdGV4dD4KICA8dGV4dCB4PSI0NjMiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlEzICcyNTwvdGV4dD4KICA8dGV4dCB4PSI1MjUiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlE0ICcyNTwvdGV4dD4KICA8dGV4dCB4PSI1ODciIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlExICcyNjwvdGV4dD4KICA8dGV4dCB4PSI2NDkiIHk9IjM2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMSIgZmlsbD0iYmxhY2siPlEyICcyNjwvdGV4dD4KICA8dGV4dCB4PSI2MCIgeT0iMzk1IiBmb250LXNpemU9IjExIiBmaWxsPSJibGFjayI+U291cmNlOiBLbGFybmEgUTIgMjAyNiBpbnRlcmltIHJlcG9ydC48L3RleHQ+Cjwvc3ZnPgo=" alt="Bar chart: transaction margin dollars by quarter, Q1 2024 to Q2 2026, falling to $271M in Q1 2025 then rising to $446M in Q2 2026">
+      <figcaption>Transaction margin dollars by quarter, Q1 2024 to Q2 2026. Transaction margin fell to $271M in Q1 2025, then rose to $446M by Q2 2026.</figcaption>
+    </figure>
+
+    <h3>Exhibit 5 — Equity value to book value</h3>
+    <figure>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNjQwIDMwMCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSwgQXJpYWwsIHNhbnMtc2VyaWYiPgo8cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2ZmZiIvPgo8dGV4dCB4PSIxNiIgeT0iMjgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSJib2xkIj5FcXVpdHkgdmFsdWUgdG8gYm9vayB2YWx1ZTwvdGV4dD4KPHRleHQgeD0iMTYiIHk9IjQ4IiBmb250LXNpemU9IjEzIj5QcmljZS10by1ib29rLCBtYXJrZXQgY2FwIGRpdmlkZWQgYnkgYm9vayBlcXVpdHk8L3RleHQ+CjxyZWN0IHg9IjE2IiB5PSI1OCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjMwIiB5PSI2OCIgZm9udC1zaXplPSIxMiI+UHJpY2UtdG8tYm9vazwvdGV4dD4KPGxpbmUgeDE9IjE2IiB5MT0iMjU4IiB4Mj0iNjI0IiB5Mj0iMjU4IiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8cmVjdCB4PSIxNiIgeT0iMjQyIiB3aWR0aD0iMTM0IiBoZWlnaHQ9IjE2IiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjgzIiB5PSIyMzYiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4xLjh4PC90ZXh0Pgo8dGV4dCB4PSI4MyIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5LbGFybmE8L3RleHQ+CjxyZWN0IHg9IjE3NCIgeT0iMjIwIiB3aWR0aD0iMTM0IiBoZWlnaHQ9IjM4IiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjI0MSIgeT0iMjE0IiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+NC4zeDwvdGV4dD4KPHRleHQgeD0iMjQxIiB5PSIyNzQiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkFmZmlybTwvdGV4dD4KPHJlY3QgeD0iMzMyIiB5PSIxODciIHdpZHRoPSIxMzQiIGhlaWdodD0iNzEiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iMzk5IiB5PSIxODEiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj44LjF4PC90ZXh0Pgo8dGV4dCB4PSIzOTkiIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2hpbWU8L3RleHQ+CjxyZWN0IHg9IjQ5MCIgeT0iNjgiIHdpZHRoPSIxMzQiIGhlaWdodD0iMTkwIiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjU1NyIgeT0iNjIiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4yMS43eDwvdGV4dD4KPHRleHQgeD0iNTU3IiB5PSIyNzQiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRhdmU8L3RleHQ+Cjx0ZXh0IHg9IjE2IiB5PSIyOTQiIGZvbnQtc2l6ZT0iMTIiPlNvdXJjZTogQ29tcGFueSBmaWxpbmdzOyBtYXJrZXQgY2FwcyBPY3QgMjMsIDIwMjY7IGJvb2sgZXF1aXR5IEp1biAzMCwgMjAyNi48L3RleHQ+Cjwvc3ZnPg==" alt="Bar chart: price-to-book — Klarna 1.8x, Affirm 4.3x, Chime 8.1x, Dave 21.7x">
+      <figcaption>Price-to-book: market cap divided by book equity (June 30, 2026).</figcaption>
+    </figure>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th scope="col">Company</th><th scope="col">Equity value</th><th scope="col">Book equity</th><th scope="col">Price-to-book</th><th scope="col">EV (approx.)</th><th scope="col">EV-to-book</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Klarna</td><td>$4.84B</td><td>$2.67B</td><td>1.8x</td><td>n.m.</td><td>n.m.</td></tr>
+          <tr><td>Affirm</td><td>$23.65B</td><td>$5.48B</td><td>4.3x</td><td>$30.9B</td><td>5.6x</td></tr>
+          <tr><td>Chime</td><td>$11.4B</td><td>$1.40B</td><td>8.1x</td><td>$10.3B</td><td>7.3x</td></tr>
+          <tr><td>Dave</td><td>$4.52B</td><td>$0.21B</td><td>21.7x</td><td>$4.5B</td><td>21.8x</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Enterprise value is market cap plus debt minus cash. For Klarna it is not meaningful: deposits are operating liabilities, not debt, so book value is the anchor. Dave's book equity fell from $353M to $208M in H1 2026 on buybacks, which mechanically lifts its price-to-book — read it as a buyback artifact as much as a valuation.</p>
+
+    <h3>Exhibit 6 — Card attach growth</h3>
+    <figure>
+      <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzAwIiB2aWV3Qm94PSIwIDAgNjQwIDMwMCIgZm9udC1mYW1pbHk9IkhlbHZldGljYSwgQXJpYWwsIHNhbnMtc2VyaWYiPgo8cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2ZmZiIvPgo8dGV4dCB4PSIxNiIgeT0iMjgiIGZvbnQtc2l6ZT0iMTciIGZvbnQtd2VpZ2h0PSJib2xkIj5DYXJkIGF0dGFjaCBncm93dGg8L3RleHQ+Cjx0ZXh0IHg9IjE2IiB5PSI0OCIgZm9udC1zaXplPSIxMyI+Q2FyZCB1c2VycyBpbiBtaWxsaW9uczsgc2hhcmUgb2YgYWN0aXZlIGNvbnN1bWVycyBpbiBwYXJlbnRoZXNlczwvdGV4dD4KPHJlY3QgeD0iMTYiIHk9IjU4IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iMzAiIHk9IjY4IiBmb250LXNpemU9IjEyIj5DYXJkIHVzZXJzPC90ZXh0Pgo8bGluZSB4MT0iMTYiIHkxPSIyNTgiIHgyPSI2MjQiIHkyPSIyNTgiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxyZWN0IHg9IjE2IiB5PSIyMjAiIHdpZHRoPSIxMDIiIGhlaWdodD0iMzgiIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iNjciIHk9IjIxNCIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjEuM00gKDEuMiUpPC90ZXh0Pgo8dGV4dCB4PSI2NyIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5RMiAyMDI1PC90ZXh0Pgo8cmVjdCB4PSIxNDIiIHk9IjE0MSIgd2lkdGg9IjEwMiIgaGVpZ2h0PSIxMTciIGZpbGw9IiMwMDAiLz4KPHRleHQgeD0iMTkzIiB5PSIxMzUiIGZvbnQtc2l6ZT0iMTEiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj40LjBNICgzLjUlKTwvdGV4dD4KPHRleHQgeD0iMTkzIiB5PSIyNzQiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlEzIDIwMjU8L3RleHQ+CjxyZWN0IHg9IjI2OCIgeT0iMTM1IiB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEyMyIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSIzMTkiIHk9IjEyOSIgZm9udC1zaXplPSIxMSIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPjQuMk0gKDMuNiUpPC90ZXh0Pgo8dGV4dCB4PSIzMTkiIHk9IjI3NCIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UTQgMjAyNTwvdGV4dD4KPHJlY3QgeD0iMzk0IiB5PSIxMTIiIHdpZHRoPSIxMDIiIGhlaWdodD0iMTQ2IiBmaWxsPSIjMDAwIi8+Cjx0ZXh0IHg9IjQ0NSIgeT0iMTA2IiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+NS4wTSAoNC4yJSk8L3RleHQ+Cjx0ZXh0IHg9IjQ0NSIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5RMSAyMDI2PC90ZXh0Pgo8cmVjdCB4PSI1MjAiIHk9IjY4IiB3aWR0aD0iMTAyIiBoZWlnaHQ9IjE5MCIgZmlsbD0iIzAwMCIvPgo8dGV4dCB4PSI1NzEiIHk9IjYyIiBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Ni41TSAoNS40JSk8L3RleHQ+Cjx0ZXh0IHg9IjU3MSIgeT0iMjc0IiBmb250LXNpemU9IjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5RMiAyMDI2PC90ZXh0Pgo8dGV4dCB4PSIxNiIgeT0iMjk0IiBmb250LXNpemU9IjEyIj5Tb3VyY2U6IENvbXBhbnkgZmlsaW5nczsgY2FyZCBjb3VudHMgYXMgcmVwb3J0ZWQgKDRNKywgNU0rIGFyZSBmbG9vcnMpLjwvdGV4dD4KPC9zdmc+" alt="Bar chart: card users by quarter — 1.3M in Q2 2025, 4.0M in Q3 2025, 4.2M in Q4 2025, 5.0M in Q1 2026, 6.5M in Q2 2026">
+      <figcaption>Card users per quarter and their share of active consumers. Card counts as reported (4M+, 5M+ are floors).</figcaption>
+    </figure>
+
+    <h3>Forward multiples</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th scope="col">Company</th><th scope="col">Forward revenue</th><th scope="col">Forward gross profit</th><th scope="col">Forward P/S</th><th scope="col">Forward P/GP</th><th scope="col">Basis</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Klarna</td><td>$5.15B</td><td>$2.16B TMD</td><td>0.9x</td><td>2.2x</td><td>Base-case model, 2027E</td></tr>
+          <tr><td>Affirm</td><td>~$5.4B</td><td>~$2.66B RLTC</td><td>4.4x</td><td>8.9x</td><td>FY2027 guidance: GMV over $64B, RLTC take rate 4.16%</td></tr>
+          <tr><td>Dave</td><td>~$0.85B</td><td>~$0.61B</td><td>5.3x</td><td>7.4x</td><td>Analyst consensus, 2027E</td></tr>
+          <tr><td>Chime</td><td>~$3.16B</td><td>~$2.84B</td><td>3.6x</td><td>4.0x</td><td>Analyst consensus, 2027E</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Klarna's next-twelve-month gross profit (transaction margin) estimate is $2.16B for 2027, up about 32% from the 2026 guide of $1.64B, with the margin rate rising from 39.6% to 42.0% of revenue. Forward gross profit per user (estimated): Klarna about $16, Affirm about $80, Dave about $169, Chime about $229 — user counts grown at recent rates, so treat these as estimates, not filings.</p>
+
+    <h3>Underwriting $250 a share</h3>
+
+    <p>$250 is not a multiple story. It is what happens if the operating plan lands. What can go right, in order: the card keeps compounding — 6.5 million users today, tens of millions by 2031, each worth roughly $130 of revenue against $28 for the average consumer — and that alone carries revenue per user from the mid-$30s toward $50 and beyond. Provisions stay at or below 0.50% of GMV while Fair Financing grows, so the extra volume drops to transaction margin instead of being eaten by credit costs. Distribution stays default-on — Stripe, Nexi, JPMorgan Payments, Clover — so merchants keep arriving without Klarna having to win them one by one. Deposits keep funding the book, memberships keep compounding from 2 million, and the US charter lands, so Klarna lends directly instead of through a partner bank.</p>
+
+    <p>Then the second leg: the assistant. If Seb's digital financial assistant actually ships — an agent that renegotiates your mortgage while you sleep, moves your deposits, switches your bills — Klarna stops being a checkout button and becomes the primary account. That is what earns a broker-like multiple on a lender's gross profit, rather than a bank multiple. None of this needs a heroic re-rate on today's numbers. It needs the card, the credit book, and the assistant to all land, in that order, over five years. If any two stall, $250 is off the table — see the kill criteria below.</p>
+
+    <h3>What would change the thesis</h3>
+
+    <p>Provisions back above 0.65% of GMV. Fair Financing delinquencies rising while growth slows — that combination means underwriting, not mix. Deposit outflows in two consecutive quarters. Card users below 15M by end-2027. Charter denied plus WebBank repricing. Any one alone does not kill it; two together force a full re-underwrite.</p>
+
+    <h3>Sources</h3>
+
+    <p>Q2 2026 interim report (6-K) and 2025 20-F for Klarna; Affirm FY2026 10-K (equity $5.48B at June 30, 2026; FY2027 GMV and RLTC guidance); Dave Q2 2026 10-Q (equity $207.9M); Chime Q2 2026 10-Q (equity $1,404.8M); company earnings supplements for user definitions; analyst consensus via SimplyWallSt/Zacks for Dave and Chime 2027 estimates; base-case model for Klarna 2027 estimates and the $100B paths.</p>
+
+    <p class="back"><a href="#top">↑ Back to top</a></p>
+  </article>
+
+</main>
+
+<script>
+  // Newest-first ordering, locked in: the Essays bullets and their articles
+  // are sorted by each item's data-date (YYYY-MM-DD), newest at the top,
+  // whichever order they appear in the markup. A new essay only needs a
+  // data-date on its bullet and on its article.
+  (function () {
+    function newestFirst(elements) {
+      return elements
+        .map(function (el, i) {
+          return { el: el, i: i, date: el.getAttribute('data-date') || '' };
+        })
+        .sort(function (a, b) {
+          if (a.date === b.date) return a.i - b.i;
+          return a.date < b.date ? 1 : -1;
+        })
+        .map(function (item) { return item.el; });
+    }
+
+    var list = document.querySelector('ul.essays');
+    if (list) {
+      newestFirst(Array.prototype.slice.call(list.children)).forEach(function (li) {
+        list.appendChild(li);
+      });
+    }
+
+    var main = document.querySelector('main');
+    if (main) {
+      var articles = Array.prototype.filter.call(main.children, function (el) {
+        return el.tagName === 'ARTICLE';
+      });
+      newestFirst(articles).forEach(function (article) {
+        main.appendChild(article);
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>
