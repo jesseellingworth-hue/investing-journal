@@ -196,7 +196,10 @@ CoinPaprika, which returns 4xx from the Worker's egress.
   filled with the wrong supply.
 - **CoinPaprika is a fallback only** — bulk, then per-token, filling
   just the symbols the CoinMarketCap leg missed. It is never the
-  sole FDV source again.
+  sole FDV source again. Its records now use the same FDV
+  definition as every other source (total supply, else max —
+  superseding the max-else-total convention in the caps-fix
+  section above).
 - **Verified in-build under the deployed condition** (CoinGecko
   stubbed 403 AND CoinPaprika stubbed 403): refresh stored exactly
   50 rows — 49 priced, 49 with market cap, **43 with FDV and fully
