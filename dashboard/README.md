@@ -166,6 +166,51 @@ The fix, in `src/worker.ts` (mirrored in the Muse artifact's
 > into the repo's `dashboard/` and redeploy. No migration,
 > wrangler.toml or client change is needed.
 
+## FDV fix (16 Nov 2026) — FDV now has a non-CoinPaprika primary source
+
+Verified live on the deployed Worker (deployment fd60df92): market
+cap populated for 49/50 and the multiples computed, but FDV was
+"n.r." for all 50 rows — the snapshot's only FDV/supply source was
+CoinPaprika, which returns 4xx from the Worker's egress.
+
+- **DeFiLlama cannot supply FDV** — probed exhaustively: its free
+  API publishes no total/max supply or FDV field anywhere
+  (`/protocols`, `lite/protocols2` at both levels, `/protocol/{slug}`,
+  coins prices/chart carry price + market cap only; the emissions
+  dataset that tracks supplies is paywalled, HTTP 402). DeFiLlama
+  remains the price + market-cap backbone.
+- **New primary FDV leg: CoinMarketCap's public listing API**
+  (`fetchCmcCaps` in `src/worker.ts`) — the unauthenticated
+  `data-api/v3/cryptocurrency/listing` endpoint the
+  coinmarketcap.com website itself loads: top 1000 by market cap in
+  one call, plus a second page (ranks 1001–2000) only when a target
+  is still unresolved. Its total supplies track CoinGecko's to four
+  significant figures (HYPE 949.74M vs 949.86M; UNI 885.85M on
+  both); FDV = live DeFiLlama price × total supply (max supply only
+  when no total exists), matching CoinGecko's FDV definition.
+  Matching is by symbol (best cmcRank, active only) or exact
+  project name (resolves LIGHTER → CMC's LIT; CARD → CARDS via
+  alias), and a candidate is accepted only when its price agrees
+  with the DeFiLlama price within 5% — symbol collisions with a
+  different project (TREE, FOX, CTR, GIGA, PRL) are refused, never
+  filled with the wrong supply.
+- **CoinPaprika is a fallback only** — bulk, then per-token, filling
+  just the symbols the CoinMarketCap leg missed. It is never the
+  sole FDV source again.
+- **Verified in-build under the deployed condition** (CoinGecko
+  stubbed 403 AND CoinPaprika stubbed 403): refresh stored exactly
+  50 rows — 49 priced, 49 with market cap, **43 with FDV and fully
+  diluted tokens outstanding** (HYPE FDV $63.07B on 949.74M tokens,
+  PUMP $2.38B, LIGHTER $2.75B, CARD $320M). The 7 remaining misses
+  are NEST/MNDE (not listed on CoinMarketCap) and the five refused
+  symbol collisions above, which the CoinPaprika per-token leg
+  fills whenever it is reachable. Normal network: 50/50 on every
+  field via CoinGecko, unchanged. Client bundle byte-identical.
+
+> **Redeploy note (FDV fix):** copy the updated `src/worker.ts`
+> into the repo's `dashboard/` and redeploy. No migration,
+> wrangler.toml or client change is needed.
+
 ## Go live — the exact steps still needed
 
 The package is complete; what remains needs Jesse's Cloudflare account
