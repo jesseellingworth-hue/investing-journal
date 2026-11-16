@@ -1,0 +1,220 @@
+/* Web-font slot: uncomment the line below and put your font there. A web-font
+   @import must come before the Tailwind import — an @import placed after any
+   other rule is a build error, and it is reported against a line number in the
+   expanded Tailwind output, far past the end of this file, so the message
+   cannot point you at the mistake. */
+/* @import url('https://fonts.googleapis.com/css2?family=Your+Font:wght@400..700&display=swap'); */
+@import "tailwindcss";
+@import "tailwindcss-safe-area";
+
+@theme {
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 36px;
+  --text-4xl: 36px;
+  --text-4xl--line-height: 40px;
+  --text-5xl: 48px;
+  --text-5xl--line-height: 52px;
+}
+
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --text: #141414;
+  --dim: #6b6b66;
+  --border: #e3e1dc;
+  --accent: #141414;
+  --up: #0a7a38;
+  --down: #b3261e;
+  --warn: #9a6a00;
+  --warn-bg: #fdf6e0;
+  --radius: 6px;
+  --space-surface: var(--surface);
+  --space-surface-alt: #f7f6f3;
+  --space-muted: var(--dim);
+  --space-border: var(--border);
+  --space-accent: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101010;
+    --surface: #101010;
+    --text: #f2f1ec;
+    --dim: #9c9a92;
+    --border: #2c2c2c;
+    --accent: #f2f1ec;
+    --up: #3fb96f;
+    --down: #e0655c;
+    --warn: #d9a83e;
+    --warn-bg: #2a2110;
+    --space-surface-alt: #171717;
+  }
+}
+
+/* Phone tap targets: at least 32px tall. */
+@layer base {
+  button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) {
+    min-height: 2rem;
+  }
+}
+
+/* Tabular terminal figures for every number on the dashboard. */
+.num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Moon scene ---- */
+/* The scene root sizes itself with a vh fallback first, then dvh:
+   some mobile webviews drop an unrecognised dvh declaration, and a
+   dropped height is what left the moon image sitting in the top
+   half of the screen over a black strip. */
+.moon-scene { width: 100vw; width: 100dvw; height: 100vh; height: 100dvh; }
+/* The artwork is landscape; on a portrait phone a centred cover-crop
+   would cut the Earth (upper right of the sky) out entirely, so the
+   mobile crop is biased toward it. The moon renders twice — an <img>
+   (object-fit) and a background layer (background-size) — because the
+   two cover mechanisms fail differently across mobile webviews; both
+   are full-bleed, so whichever one a given webview honours, the moon
+   fills the screen edge to edge with no black strip. */
+.moon-bg { object-position: 50% 50%; }
+.moon-bg-layer {
+  background-size: cover;
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
+}
+@media (max-width: 640px) {
+  .moon-bg { object-position: 80% 50%; }
+  .moon-bg-layer { background-position: 80% 50%; }
+}
+/* Cover-stage: a box with exactly the geometry the cover-fitted
+   moon artwork occupies — same size, same position — so children
+   placed at image-fraction coordinates (% of this box) sit exactly
+   on the painted features they belong to, at any viewport size.
+   The artwork is 1920×1280 (3:2): cover scales it to
+   max(100vw, 150vh) × max(100vh, 66.667vw), centred on desktop and
+   biased 80% toward Earth on phones, mirroring .moon-bg above.
+   The bias is also what keeps the painted outpost (image x
+   65–82%) in frame on a portrait phone: at 80% the visible
+   window is roughly image x 54–86% across phone aspects, so
+   Earth (x ~70%) and both terminals stay on screen together.
+   vh units come first as the fallback, dvh overrides where the
+   webview understands it (same pattern as .moon-scene). */
+.moon-stage {
+  position: absolute;
+  width: max(100vw, 150vh);
+  width: max(100dvw, 150dvh);
+  height: max(100vh, 66.667vw);
+  height: max(100dvh, 66.667dvw);
+  left: calc((100vw - max(100vw, 150vh)) * 0.5);
+  left: calc((100dvw - max(100dvw, 150dvh)) * 0.5);
+  top: calc((100vh - max(100vh, 66.667vw)) * 0.5);
+  top: calc((100dvh - max(100dvh, 66.667dvw)) * 0.5);
+}
+@media (max-width: 640px) {
+  .moon-stage {
+    left: calc((100vw - max(100vw, 150vh)) * 0.8);
+    left: calc((100dvw - max(100dvw, 150dvh)) * 0.8);
+  }
+}
+:root {
+  --moon-panel: rgba(255, 255, 255, 0.9);
+  --moon-panel-solid: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --moon-panel: rgba(14, 14, 18, 0.9);
+    --moon-panel-solid: #101014;
+  }
+}
+
+@keyframes moon-materialize {
+  0% { opacity: 0; transform: translateY(56px) scale(0.985); filter: blur(14px); }
+  55% { opacity: 1; filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes moon-dissolve {
+  0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(48px) scale(0.985); filter: blur(14px); }
+}
+@keyframes dust-rise {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6); }
+  12% { opacity: var(--dust-opacity, 0.9); }
+  100% { opacity: 0; transform: translate3d(var(--dust-dx, 0px), var(--dust-dy, -180px), 0) scale(1.15); }
+}
+@keyframes dust-fall {
+  0% { opacity: var(--dust-opacity, 0.9); transform: translate3d(var(--dust-dx, 0px), var(--dust-dy, -140px), 0) scale(1.1); }
+  88% { opacity: var(--dust-opacity, 0.7); }
+  100% { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.7); }
+}
+@keyframes hint-breathe {
+  0%, 100% { opacity: 0.55; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+@keyframes ambient-drift {
+  0% { opacity: 0; transform: translate3d(0, 6px, 0); }
+  20% { opacity: var(--dust-opacity, 0.55); }
+  80% { opacity: var(--dust-opacity, 0.55); }
+  100% { opacity: 0; transform: translate3d(var(--dust-dx, 0px), var(--dust-dy, -90px), 0); }
+}
+
+.moon-panel-materializing { animation: moon-materialize 720ms cubic-bezier(0.22, 0.9, 0.28, 1) both; }
+.moon-panel-dissolving { animation: moon-dissolve 560ms cubic-bezier(0.5, 0, 0.75, 0.4) both; }
+.dust-particle { position: absolute; border-radius: 9999px; pointer-events: none; will-change: transform, opacity; }
+.dust-rise { animation: dust-rise 900ms ease-out both; }
+.dust-fall { animation: dust-fall 700ms ease-in both; }
+.dust-ambient { animation: ambient-drift 7s ease-in-out infinite; }
+.moon-hint { animation: hint-breathe 2.8s ease-in-out infinite; }
+
+/* ---- Terminal zoom transitions ---- */
+/* Clicking a moon terminal flies the camera into its screen: the
+   whole moon backdrop scales up from the terminal's position
+   (transform-origin set inline from the click) while the panel
+   materializes; exiting runs it backwards. */
+@keyframes scene-zoom-in {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2.4); opacity: 0.9; }
+}
+@keyframes scene-zoom-out {
+  0% { transform: scale(2.4); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes terminal-zoom {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+@keyframes terminal-fade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes terminal-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.scene-zoom-in { animation: scene-zoom-in 720ms cubic-bezier(0.22, 0.9, 0.28, 1) both; will-change: transform; }
+.scene-zoom-out { animation: scene-zoom-out 560ms cubic-bezier(0.5, 0, 0.75, 0.4) both; will-change: transform; }
+.scene-zoomed { transform: scale(2.4); will-change: transform; }
+.terminal-zooming { animation: terminal-zoom 720ms ease-in both; }
+.terminal-fading { animation: terminal-fade 320ms ease-out both; }
+.terminal-bob { animation: terminal-bob 5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .moon-panel-materializing, .moon-panel-dissolving, .moon-hint { animation-duration: 1ms; }
+  .dust-ambient { animation: none; opacity: 0; }
+  .scene-zoom-in, .scene-zoom-out, .terminal-zooming, .terminal-fading { animation-duration: 1ms; }
+  .terminal-bob { animation: none; }
+}
