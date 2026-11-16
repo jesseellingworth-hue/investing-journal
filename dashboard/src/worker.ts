@@ -458,10 +458,9 @@ async function fetchLlamaPrices(
 
 // One supply record, normalised across the FDV sources below
 // (CoinMarketCap listing, CoinPaprika tickers). fdvSupply is the
-// supply the FDV is computed on, chosen per source: CoinMarketCap
-// (like CoinGecko) defines FDV on total supply, falling back to
-// max supply only when no total exists; CoinPaprika's records keep
-// the long-standing max-else-total choice.
+// supply the FDV is computed on — one definition for every source,
+// CoinGecko's: total supply, falling back to max supply only when
+// no total exists.
 interface SupplyCap {
   marketCap: number;
   totalSupply: number | null;
@@ -505,7 +504,7 @@ function paprikaCapFromTicker(t: Record<string, unknown>): SupplyCap | null {
     marketCap: marketCap != null && marketCap > 0 ? marketCap : 0,
     totalSupply,
     maxSupply,
-    fdvSupply: maxSupply != null && maxSupply > 0 ? maxSupply : totalSupply,
+    fdvSupply: totalSupply != null && totalSupply > 0 ? totalSupply : maxSupply,
     price,
   };
 }
