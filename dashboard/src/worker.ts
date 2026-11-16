@@ -5,8 +5,9 @@
 //    ids from a resilient source chain (see fetchMarkets below):
 //    CoinGecko coins/markets first, DeFiLlama coins prices as the
 //    fallback — CoinGecko 403s the deployed Worker's egress, which
-//    is what froze this dashboard at its baseline — plus CoinPaprika
-//    caps in the refresh pipeline. Server-cached for 8 seconds so
+//    is what froze this dashboard at its baseline — plus
+//    DeFiLlama-index market caps and CoinPaprika FDV/supplies in the
+//    refresh pipeline. Server-cached for 8 seconds so
 //    every viewer shares one upstream call; the client polls
 //    getPrices every ~8s and updates price / market cap / FDV /
 //    supplies in place. pricesUpdatedAt is stamped to the second and
@@ -349,12 +350,22 @@ interface CgMarket {
 //     current price for every id in one batched call, 24h change
 //     from the batched historical call. Identity-safe: keyed by the
 //     exact CoinGecko id.
-//  3. Rich mode only (the refresh pipeline): CoinPaprika's tickers
-//     list fills market cap / supplies for the DeFiLlama-priced
-//     rows. Paprika is keyed by symbol, so a row is accepted only
-//     when Paprika's own price agrees with DeFiLlama's id-keyed
-//     price within 5% — a symbol collision can never attach the
-//     wrong project's cap. FDV = price × (max supply, else total).
+//  3. Rich mode only (the refresh pipeline): market cap comes FIRST
+//     from DeFiLlama's own protocol index — lite/protocols2
+//     parentProtocols + /protocols carry an `mcap` per CoinGecko id,
+//     fetched on the same api.llama.fi calls the description index
+//     already makes (verified live 16 Nov 2026: every claim-filtered
+//     universe token resolves; HYPE $15.84B, PUMP $1.34B, SKY $1.26B
+//     all match the research baseline). CoinPaprika then fills
+//     FDV / supplies: the bulk tickers list first (with a browser
+//     User-Agent — the UA-less bulk call is what returned 4xx from
+//     the deployed Worker and left every cap null), and any symbol
+//     the bulk call misses is retried per token (search → ticker,
+//     both tiny responses). Paprika is keyed by symbol, so a row is
+//     accepted only when Paprika's own price agrees with
+//     DeFiLlama's id-keyed price within 5% — a symbol collision can
+//     never attach the wrong project's cap. FDV = price × (max
+//     supply, else total).
 //
 // fetchMarkets never throws: on total failure it returns an empty
 // map plus the combined error, and each caller decides what that
@@ -364,6 +375,10 @@ interface CgMarket {
 export interface MarketTarget {
   id: string;
   symbol: string;
+  // Project name, used only to disambiguate the per-token
+  // CoinPaprika search (e.g. the dashboard's LIGHTER is Paprika's
+  // LIT, and CARD is Paprika's CARDS "Collector Crypt").
+  name?: string;
 }
 
 interface MarketsResult {
@@ -436,11 +451,51 @@ interface PaprikaCap {
   price: number;
 }
 
+// CoinPaprika sits behind the same kind of bot filtering as
+// CoinGecko: every Paprika call carries a browser User-Agent. The
+// original caps fetch sent none, and its single bulk tickers call
+// returned 4xx from the deployed Worker on every refresh — the
+// direct cause of marketCapM/fdvM being null for all 50 tokens
+// while prices (DeFiLlama) stayed live.
+const PAPRIKA_HEADERS: Record<string, string> = {
+  "user-agent": "Mozilla/5.0 (compatible; CryptoRevenueDashboard/1.0)",
+};
+
+function paprikaCapFromTicker(t: Record<string, unknown>): PaprikaCap | null {
+  const quotes = t.quotes as
+    | { USD?: { price?: unknown; market_cap?: unknown } }
+    | undefined;
+  const price = numOrNull(quotes?.USD?.price);
+  const marketCap = numOrNull(quotes?.USD?.market_cap);
+  const totalSupply = numOrNull(t.total_supply);
+  const maxSupply = numOrNull(t.max_supply);
+  if (price == null || price <= 0) return null;
+  // Some tickers report market_cap 0 / total_supply 0 while still
+  // carrying a usable max supply (DBR: cap 0, max 10B) — the cap is
+  // worth keeping for its FDV supply alone. marketCap stays 0 in
+  // that case and the caller only uses it when positive (the
+  // DeFiLlama mcap index is the cap of record anyway).
+  if (
+    (marketCap == null || marketCap <= 0) &&
+    (totalSupply == null || totalSupply <= 0) &&
+    (maxSupply == null || maxSupply <= 0)
+  ) {
+    return null;
+  }
+  return {
+    marketCap: marketCap != null && marketCap > 0 ? marketCap : 0,
+    totalSupply,
+    maxSupply,
+    price,
+  };
+}
+
 async function fetchPaprikaCaps(
   symbols: Set<string>,
 ): Promise<Map<string, PaprikaCap>> {
   const raw = await fetchJson(
     "https://api.coinpaprika.com/v1/tickers?quotes=USD",
+    PAPRIKA_HEADERS,
   );
   const best = new Map<
     string,
@@ -456,27 +511,128 @@ async function fetchPaprikaCaps(
   }
   const out = new Map<string, PaprikaCap>();
   for (const [symbol, { t }] of best) {
-    const quotes = t.quotes as
-      | { USD?: { price?: unknown; market_cap?: unknown } }
-      | undefined;
-    const price = numOrNull(quotes?.USD?.price);
-    const marketCap = numOrNull(quotes?.USD?.market_cap);
-    if (price == null || price <= 0 || marketCap == null || marketCap <= 0) {
+    const cap = paprikaCapFromTicker(t);
+    if (cap) out.set(symbol, cap);
+  }
+  return out;
+}
+
+// Per-token CoinPaprika fallback: when the bulk tickers call fails
+// (or omits a symbol), each missing token is resolved individually —
+// a search call resolves candidate Paprika ids (ids are NOT
+// derivable from CoinGecko ids: AAVE is "aave-new", PUMP is
+// "pump-pumpfun", DRV is "drv7-derive"), then the per-coin ticker
+// endpoint (a ~1KB response, far more likely to survive egress
+// filtering than the 1.7MB bulk list) returns price / market cap /
+// supplies. Two traps in the search data, both verified live:
+// inactive entries carry rank 0 (below every real rank, so a naive
+// "lowest rank wins" picks dead copycat tokens), and several
+// symbols have live copycats — so candidates must be active with a
+// positive rank, and a candidate's cap is accepted only when its
+// own price agrees with the token's DeFiLlama price within 5%.
+// Winning ids are cached per isolate so repeat refreshes skip the
+// search. Every failure is per-token and non-fatal.
+const paprikaIdCache = new Map<string, string>();
+
+// Dashboard symbol → CoinPaprika symbol where they differ (mirrors
+// RIGHTS_SYMBOL_ALIAS: Collector Crypt's token is CARDS on
+// CoinPaprika; the dashboard uses the Coinbase symbol CARD).
+const PAPRIKA_SYMBOL_ALIAS: Record<string, string> = { CARD: "CARDS" };
+
+async function searchPaprikaCandidates(
+  query: string,
+  target: MarketTarget,
+): Promise<string[]> {
+  const raw = (await fetchJson(
+    `https://api.coinpaprika.com/v1/search/?q=${encodeURIComponent(query)}&c=currencies&limit=10`,
+    PAPRIKA_HEADERS,
+  )) as { currencies?: Array<Record<string, unknown>> };
+  const currencies = Array.isArray(raw.currencies) ? raw.currencies : [];
+  const alias = PAPRIKA_SYMBOL_ALIAS[target.symbol] ?? target.symbol;
+  const nameLc = target.name?.trim().toLowerCase();
+  const accepted: Array<{ id: string; rank: number }> = [];
+  for (const c of currencies) {
+    if (typeof c.id !== "string") continue;
+    if (c.is_active === false) continue;
+    const rank = numOrNull(c.rank) ?? 0;
+    if (rank <= 0) continue;
+    const sym = typeof c.symbol === "string" ? c.symbol : "";
+    const nm = typeof c.name === "string" ? c.name.trim().toLowerCase() : "";
+    if (sym !== target.symbol && sym !== alias && (!nameLc || nm !== nameLc)) {
       continue;
     }
-    out.set(symbol, {
-      marketCap,
-      totalSupply: numOrNull(t.total_supply),
-      maxSupply: numOrNull(t.max_supply),
-      price,
-    });
+    accepted.push({ id: c.id, rank });
+  }
+  accepted.sort((a, b) => a.rank - b.rank);
+  return accepted.map((a) => a.id);
+}
+
+async function fetchPaprikaCapsPerToken(
+  targets: MarketTarget[],
+  priceById: Map<string, number>,
+): Promise<Map<string, PaprikaCap>> {
+  const out = new Map<string, PaprikaCap>();
+  const BATCH = 8;
+  for (let i = 0; i < targets.length; i += BATCH) {
+    const batch = targets.slice(i, i + BATCH);
+    await Promise.all(
+      batch.map(async (t) => {
+        try {
+          const knownPrice = priceById.get(t.id);
+          let candidateIds: string[] = [];
+          const cachedId = paprikaIdCache.get(t.symbol);
+          if (cachedId) {
+            candidateIds = [cachedId];
+          } else {
+            const queries = [PAPRIKA_SYMBOL_ALIAS[t.symbol] ?? t.symbol];
+            if (t.name && t.name !== queries[0]) queries.push(t.name);
+            for (const q of queries) {
+              try {
+                for (const id of await searchPaprikaCandidates(q, t)) {
+                  if (!candidateIds.includes(id)) candidateIds.push(id);
+                }
+              } catch (e) {
+                logError(`markets: coinpaprika search failed for ${t.symbol}`, e);
+              }
+              if (candidateIds.length >= 4) break;
+            }
+            candidateIds = candidateIds.slice(0, 4);
+          }
+          for (const id of candidateIds) {
+            try {
+              const raw = (await fetchJson(
+                `https://api.coinpaprika.com/v1/tickers/${encodeURIComponent(id)}?quotes=USD`,
+                PAPRIKA_HEADERS,
+              )) as Record<string, unknown>;
+              const cap = paprikaCapFromTicker(raw);
+              if (!cap) continue;
+              if (
+                knownPrice != null &&
+                Math.abs(cap.price - knownPrice) / knownPrice > 0.05
+              ) {
+                continue; // a copycat namesake — try the next candidate
+              }
+              paprikaIdCache.set(t.symbol, id);
+              out.set(t.symbol, cap);
+              break;
+            } catch {
+              // Dead candidate id (search lists ids the ticker
+              // endpoint 404s): fall through to the next candidate.
+              continue;
+            }
+          }
+        } catch (e) {
+          logError(`markets: coinpaprika per-token failed for ${t.symbol}`, e);
+        }
+      }),
+    );
   }
   return out;
 }
 
 async function fetchMarkets(
   targets: MarketTarget[],
-  opts: { rich: boolean; cgApiKey?: string },
+  opts: { rich: boolean; cgApiKey?: string; llamaCaps?: Map<string, number> },
 ): Promise<MarketsResult> {
   const ids = targets.map((t) => t.id);
   if (ids.length === 0) return { map: new Map(), source: "none", error: null };
@@ -523,10 +679,28 @@ async function fetchMarkets(
     if (opts.rich) {
       try {
         caps = await fetchPaprikaCaps(new Set(targets.map((t) => t.symbol)));
-        if (caps.size > 0) source = "defillama+coinpaprika";
       } catch (e) {
-        logError("markets: coinpaprika caps fallback failed", e);
+        logError("markets: coinpaprika bulk caps failed", e);
       }
+      // Any symbol the bulk list missed (or the bulk call failed
+      // outright) is retried per token — search + per-coin ticker,
+      // with each candidate's price checked against the DeFiLlama
+      // price before acceptance.
+      const missing = targets.filter((t) => !caps.has(t.symbol));
+      if (missing.length > 0) {
+        try {
+          const priceById = new Map<string, number>();
+          for (const t of targets) {
+            const p = current.get(t.id);
+            if (p) priceById.set(t.id, p.price);
+          }
+          const perToken = await fetchPaprikaCapsPerToken(missing, priceById);
+          for (const [symbol, cap] of perToken) caps.set(symbol, cap);
+        } catch (e) {
+          logError("markets: coinpaprika per-token caps failed", e);
+        }
+      }
+      if (caps.size > 0) source = "defillama+coinpaprika";
     }
     const map = new Map<string, CgMarket>();
     for (const t of targets) {
@@ -545,10 +719,22 @@ async function fetchMarkets(
         circulating_supply: null,
         total_supply: null,
       };
+      // Market cap first from DeFiLlama's protocol index (keyed by
+      // the exact CoinGecko id, from the same llama fetches the
+      // refresh already made — the source proven to work from the
+      // deployed Worker's egress). Circulating supply derives from
+      // cap ÷ the id-keyed DeFiLlama price.
+      const llamaMcap = opts.llamaCaps?.get(t.id);
+      if (llamaMcap != null && llamaMcap > 0) {
+        entry.market_cap = llamaMcap;
+        entry.circulating_supply = llamaMcap / cur.price;
+      }
       const cap = caps.get(t.symbol);
       if (cap && Math.abs(cap.price - cur.price) / cur.price <= 0.05) {
-        entry.market_cap = cap.marketCap;
-        entry.circulating_supply = cap.marketCap / cur.price;
+        if (entry.market_cap == null && cap.marketCap > 0) {
+          entry.market_cap = cap.marketCap;
+          entry.circulating_supply = cap.marketCap / cur.price;
+        }
         entry.total_supply = cap.totalSupply;
         const fdvSupply =
           cap.maxSupply != null && cap.maxSupply > 0
@@ -916,6 +1102,20 @@ interface DescIndex {
   // /protocols carries symbol + gecko_id + category per slug).
   tokenBySlug: Map<string, TokenIdentity>;
   tokenByParent: Map<string, TokenIdentity>;
+  // Market caps from the SAME two DeFiLlama payloads (verified live
+  // 16 Nov 2026): lite/protocols2 parentProtocols carry `mcap` keyed
+  // by gecko_id (HYPE $15.84B, PUMP $1.34B, SKY $1.26B — matching the
+  // research baseline), lite/protocols2 protocols carry `mcap` keyed
+  // by geckoId, and /protocols carries `mcap` keyed by gecko_id.
+  // Combined coverage is every claim-filtered universe token; the
+  // only misses are the no-claim stablecoin issuers (USDT/USDC/
+  // PAXG/RLUSD/CBETH), which the claim filter excludes anyway.
+  mcapByGecko: Map<string, number>;
+  // Parent-protocol mcap keyed by `parent#<slug>`, with the parent's
+  // symbol — the fallback for tokens whose parent carries a
+  // different CoinGecko id than the token itself (AERO's parent
+  // entry uses gecko_id "aero", not "aerodrome-finance").
+  mcapByParent: Map<string, { mcap: number; symbol: string }>;
 }
 
 function cleanDescription(raw: unknown): string | null {
@@ -937,6 +1137,14 @@ async function fetchDescriptionIndex(): Promise<DescIndex> {
   const byGecko = new Map<string, string>();
   const tokenBySlug = new Map<string, TokenIdentity>();
   const tokenByParent = new Map<string, TokenIdentity>();
+  const mcapByGecko = new Map<string, number>();
+  const mcapByParent = new Map<string, { mcap: number; symbol: string }>();
+  const noteMcap = (geckoId: unknown, mcapRaw: unknown) => {
+    const mcap = numOrNull(mcapRaw);
+    if (typeof geckoId === "string" && geckoId !== "" && mcap != null && mcap > 0 && !mcapByGecko.has(geckoId)) {
+      mcapByGecko.set(geckoId, mcap);
+    }
+  };
   try {
     const [full, lite] = await Promise.all([
       fetchJson("https://api.llama.fi/protocols"),
@@ -944,6 +1152,7 @@ async function fetchDescriptionIndex(): Promise<DescIndex> {
     ]);
     if (Array.isArray(full)) {
       for (const p of full as Array<Record<string, unknown>>) {
+        noteMcap(p.gecko_id, p.mcap);
         if (
           typeof p.slug === "string" &&
           typeof p.symbol === "string" &&
@@ -968,9 +1177,29 @@ async function fetchDescriptionIndex(): Promise<DescIndex> {
         }
       }
     }
+    // lite/protocols2 protocol entries key their CoinGecko id as
+    // `geckoId` (camelCase — the parent entries use `gecko_id`).
+    const liteProtocols =
+      (lite as { protocols?: Array<Record<string, unknown>> }).protocols ?? [];
+    for (const p of liteProtocols) {
+      noteMcap(p.geckoId, p.mcap);
+    }
     const parents =
       (lite as { parentProtocols?: Array<Record<string, unknown>> }).parentProtocols ?? [];
     for (const p of parents) {
+      noteMcap(p.gecko_id, p.mcap);
+      const parentMcap = numOrNull(p.mcap);
+      if (
+        typeof p.id === "string" &&
+        parentMcap != null &&
+        parentMcap > 0 &&
+        !mcapByParent.has(p.id)
+      ) {
+        mcapByParent.set(p.id, {
+          mcap: parentMcap,
+          symbol: typeof p.symbol === "string" ? p.symbol : "",
+        });
+      }
       if (
         typeof p.id === "string" &&
         typeof p.symbol === "string" &&
@@ -998,7 +1227,21 @@ async function fetchDescriptionIndex(): Promise<DescIndex> {
     // Dynamic discovery degrades with it — the research-mapped
     // universe still ranks and fills as far as it can.
   }
-  return { bySlug, byParent, byGecko, tokenBySlug, tokenByParent };
+  return { bySlug, byParent, byGecko, tokenBySlug, tokenByParent, mcapByGecko, mcapByParent };
+}
+
+// DeFiLlama market cap for a token: direct CoinGecko-id hit first
+// (identity-safe), then the token's parent-protocol entry when its
+// symbol agrees (catches AERO, whose parent entry carries gecko_id
+// "aero" rather than the token's "aerodrome-finance").
+function llamaMcapFor(meta: TokenMeta, index: DescIndex): number | null {
+  const direct = index.mcapByGecko.get(meta.cgId);
+  if (direct != null) return direct;
+  for (const p of meta.parents) {
+    const hit = index.mcapByParent.get(`parent#${p}`);
+    if (hit && hit.symbol === meta.symbol) return hit.mcap;
+  }
+  return null;
 }
 
 function descriptionFor(meta: TokenMeta, index: DescIndex): string | null {
@@ -1202,15 +1445,24 @@ async function buildLivePayload(cgApiKey?: string): Promise<DashboardPayload> {
     .slice(0, 50);
 
   // Market data is the resilient chain (CoinGecko → DeFiLlama →
-  // CoinPaprika caps): it never throws, so a price-source outage can
-  // no longer kill the whole revenue refresh the way the bare
-  // CoinGecko call did (HTTP 403 from the deployed Worker's egress —
-  // no snapshot was ever stored). On total price failure the map is
-  // empty, rows carry null prices, and the callers decide whether
-  // storing that beats the previous snapshot.
+  // DeFiLlama mcap index + CoinPaprika supplies): it never throws,
+  // so a price-source outage can no longer kill the whole revenue
+  // refresh the way the bare CoinGecko call did (HTTP 403 from the
+  // deployed Worker's egress — no snapshot was ever stored). On
+  // total price failure the map is empty, rows carry null prices,
+  // and the callers decide whether storing that beats the previous
+  // snapshot. The DeFiLlama mcap index rides the description-index
+  // fetches above (no extra subrequests) and is keyed by CoinGecko
+  // id, so caps populate even when both CoinGecko and CoinPaprika
+  // are unreachable from the Worker's egress.
+  const llamaCaps = new Map<string, number>();
+  for (const x of ranked) {
+    const mc = llamaMcapFor(x.meta, descIndex);
+    if (mc != null) llamaCaps.set(x.meta.cgId, mc);
+  }
   const markets = await fetchMarkets(
-    ranked.map((x) => ({ id: x.meta.cgId, symbol: x.meta.symbol })),
-    { rich: true, cgApiKey },
+    ranked.map((x) => ({ id: x.meta.cgId, symbol: x.meta.symbol, name: x.meta.project })),
+    { rich: true, cgApiKey, llamaCaps },
   );
   const cg = markets.map;
 
