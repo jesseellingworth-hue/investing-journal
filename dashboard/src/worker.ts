@@ -6,8 +6,8 @@
 //    CoinGecko coins/markets first, DeFiLlama coins prices as the
 //    fallback — CoinGecko 403s the deployed Worker's egress, which
 //    is what froze this dashboard at its baseline — plus
-//    DeFiLlama-index market caps and CoinPaprika FDV/supplies in the
-//    refresh pipeline. Server-cached for 8 seconds so
+//    DeFiLlama-index market caps and CoinMarketCap / CoinPaprika
+//    FDV/supplies in the refresh pipeline. Server-cached for 8 seconds so
 //    every viewer shares one upstream call; the client polls
 //    getPrices every ~8s and updates price / market cap / FDV /
 //    supplies in place. pricesUpdatedAt is stamped to the second and
@@ -127,7 +127,8 @@ export interface Env {
   REFRESH_SECRET?: string;
   // Optional CoinGecko demo API key (`wrangler secret put
   // COINGECKO_API_KEY`). Sent as x-cg-demo-api-key when set; the
-  // price pipeline falls back to DeFiLlama + CoinPaprika without it.
+  // price pipeline falls back to DeFiLlama prices/caps plus
+  // CoinMarketCap / CoinPaprika supplies without it.
   COINGECKO_API_KEY?: string;
 }
 
@@ -356,16 +357,21 @@ interface CgMarket {
 //     fetched on the same api.llama.fi calls the description index
 //     already makes (verified live 16 Nov 2026: every claim-filtered
 //     universe token resolves; HYPE $15.84B, PUMP $1.34B, SKY $1.26B
-//     all match the research baseline). CoinPaprika then fills
-//     FDV / supplies: the bulk tickers list first (with a browser
-//     User-Agent — the UA-less bulk call is what returned 4xx from
-//     the deployed Worker and left every cap null), and any symbol
-//     the bulk call misses is retried per token (search → ticker,
-//     both tiny responses). Paprika is keyed by symbol, so a row is
-//     accepted only when Paprika's own price agrees with
-//     DeFiLlama's id-keyed price within 5% — a symbol collision can
-//     never attach the wrong project's cap. FDV = price × (max
-//     supply, else total).
+//     all match the research baseline). FDV / supplies come next
+//     from CoinMarketCap's public listing (see fetchCmcCaps):
+//     DeFiLlama's free API publishes no supply or FDV field
+//     anywhere (probed exhaustively — protocols, lite/protocols2,
+//     per-protocol detail, coins prices/chart; the emissions
+//     dataset is paywalled), while the previous sole FDV source,
+//     CoinPaprika, returns 4xx from the deployed Worker's egress
+//     and left FDV null for all 50 rows. CoinPaprika is kept only
+//     as a fallback that fills the symbols the CoinMarketCap leg
+//     misses (bulk tickers first, then per token: search → ticker).
+//     Both are keyed by symbol, so a row is accepted only when the
+//     source's own price agrees with DeFiLlama's id-keyed price
+//     within 5% — a symbol collision can never attach the wrong
+//     project's supply. FDV = live price × the fully diluted
+//     supply each source reports (see SupplyCap).
 //
 // fetchMarkets never throws: on total failure it returns an empty
 // map plus the combined error, and each caller decides what that
@@ -383,7 +389,13 @@ export interface MarketTarget {
 
 interface MarketsResult {
   map: Map<string, CgMarket>;
-  source: "coingecko" | "defillama" | "defillama+coinpaprika" | "none";
+  source:
+    | "coingecko"
+    | "defillama"
+    | "defillama+cmc"
+    | "defillama+coinpaprika"
+    | "defillama+cmc+coinpaprika"
+    | "none";
   error: string | null;
 }
 
@@ -444,10 +456,17 @@ async function fetchLlamaPrices(
   return out;
 }
 
-interface PaprikaCap {
+// One supply record, normalised across the FDV sources below
+// (CoinMarketCap listing, CoinPaprika tickers). fdvSupply is the
+// supply the FDV is computed on, chosen per source: CoinMarketCap
+// (like CoinGecko) defines FDV on total supply, falling back to
+// max supply only when no total exists; CoinPaprika's records keep
+// the long-standing max-else-total choice.
+interface SupplyCap {
   marketCap: number;
   totalSupply: number | null;
   maxSupply: number | null;
+  fdvSupply: number | null;
   price: number;
 }
 
@@ -461,7 +480,7 @@ const PAPRIKA_HEADERS: Record<string, string> = {
   "user-agent": "Mozilla/5.0 (compatible; CryptoRevenueDashboard/1.0)",
 };
 
-function paprikaCapFromTicker(t: Record<string, unknown>): PaprikaCap | null {
+function paprikaCapFromTicker(t: Record<string, unknown>): SupplyCap | null {
   const quotes = t.quotes as
     | { USD?: { price?: unknown; market_cap?: unknown } }
     | undefined;
@@ -486,13 +505,14 @@ function paprikaCapFromTicker(t: Record<string, unknown>): PaprikaCap | null {
     marketCap: marketCap != null && marketCap > 0 ? marketCap : 0,
     totalSupply,
     maxSupply,
+    fdvSupply: maxSupply != null && maxSupply > 0 ? maxSupply : totalSupply,
     price,
   };
 }
 
 async function fetchPaprikaCaps(
   symbols: Set<string>,
-): Promise<Map<string, PaprikaCap>> {
+): Promise<Map<string, SupplyCap>> {
   const raw = await fetchJson(
     "https://api.coinpaprika.com/v1/tickers?quotes=USD",
     PAPRIKA_HEADERS,
@@ -509,7 +529,7 @@ async function fetchPaprikaCaps(
       if (!prev || rank < prev.rank) best.set(t.symbol, { rank, t });
     }
   }
-  const out = new Map<string, PaprikaCap>();
+  const out = new Map<string, SupplyCap>();
   for (const [symbol, { t }] of best) {
     const cap = paprikaCapFromTicker(t);
     if (cap) out.set(symbol, cap);
@@ -570,8 +590,8 @@ async function searchPaprikaCandidates(
 async function fetchPaprikaCapsPerToken(
   targets: MarketTarget[],
   priceById: Map<string, number>,
-): Promise<Map<string, PaprikaCap>> {
-  const out = new Map<string, PaprikaCap>();
+): Promise<Map<string, SupplyCap>> {
+  const out = new Map<string, SupplyCap>();
   const BATCH = 8;
   for (let i = 0; i < targets.length; i += BATCH) {
     const batch = targets.slice(i, i + BATCH);
@@ -630,6 +650,129 @@ async function fetchPaprikaCapsPerToken(
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// FDV / supplies — CoinMarketCap public listing (primary rich-mode leg)
+// ---------------------------------------------------------------------------
+//
+// Why not DeFiLlama for supplies: probed exhaustively 16 Nov 2026 —
+// DeFiLlama's free API publishes NO total/max supply or FDV field
+// anywhere (api.llama.fi/protocols, lite/protocols2 at both levels,
+// /protocol/{slug}, and coins.llama.fi prices/chart all carry price
+// and market cap only; the emissions/unlocks dataset that tracks
+// supplies is paywalled, HTTP 402). DeFiLlama therefore stays the
+// price + market-cap backbone (both proven live from the deployed
+// Worker's egress), and the FDV supply leg comes from
+// CoinMarketCap's public listing API — the same unauthenticated
+// endpoint the coinmarketcap.com website itself loads
+// (data-api/v3/cryptocurrency/listing, top 1000 by market cap per
+// call; a second page, ranks 1001–2000, is fetched only when a
+// target is still unresolved — INV, SD, QUICK, SWELL, DEXT and
+// INDEX all sit just past rank 1000). Its total supplies track
+// CoinGecko's to four
+// significant figures (HYPE 949.74M vs CoinGecko 949.86M; UNI
+// 885.85M on both), and FDV follows CoinGecko's definition: the
+// live DeFiLlama price × total supply (max supply only when no
+// total exists). Matching is by symbol (best cmcRank, active
+// entries only) or by exact project name — the name match is what
+// resolves LIGHTER to CMC's LIT listing — and a candidate is
+// accepted only when its own price agrees with the token's
+// DeFiLlama price within 5%, so a symbol collision can never
+// attach the wrong project's supply. One call per refresh; failure
+// is non-fatal (the CoinPaprika fallback below fills what it can).
+const CMC_HEADERS: Record<string, string> = {
+  "user-agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+};
+
+// Dashboard symbol → CoinMarketCap symbol where they differ
+// (Collector Crypt's token is CARDS on CoinMarketCap, as on
+// CoinPaprika; the dashboard uses the Coinbase symbol CARD).
+const CMC_SYMBOL_ALIAS: Record<string, string> = { CARD: "CARDS" };
+
+async function fetchCmcCaps(
+  targets: MarketTarget[],
+  priceById: Map<string, number>,
+): Promise<Map<string, SupplyCap>> {
+  const candidates = new Map<string, Array<{ rank: number; cap: SupplyCap }>>();
+  for (const t of targets) candidates.set(t.symbol, []);
+  const collect = (list: unknown) => {
+    if (!Array.isArray(list)) return;
+    for (const e of list as Array<Record<string, unknown>>) {
+      if (e.isActive === 0 || e.isActive === false) continue;
+      const sym = typeof e.symbol === "string" ? e.symbol : "";
+      const nameLc =
+        typeof e.name === "string" ? e.name.trim().toLowerCase() : "";
+      const quotes = Array.isArray(e.quotes) ? e.quotes : [];
+      const q = (quotes[0] ?? {}) as Record<string, unknown>;
+      const price = numOrNull(q.price);
+      if (price == null || price <= 0) continue;
+      const totalSupply = numOrNull(e.totalSupply);
+      const maxSupply = numOrNull(e.maxSupply);
+      if (
+        (totalSupply == null || totalSupply <= 0) &&
+        (maxSupply == null || maxSupply <= 0)
+      ) {
+        continue;
+      }
+      const marketCap = numOrNull(q.marketCap);
+      const cap: SupplyCap = {
+        marketCap: marketCap != null && marketCap > 0 ? marketCap : 0,
+        totalSupply,
+        maxSupply,
+        fdvSupply:
+          totalSupply != null && totalSupply > 0 ? totalSupply : maxSupply,
+        price,
+      };
+      const rank = numOrNull(e.cmcRank) ?? Number.MAX_SAFE_INTEGER;
+      for (const t of targets) {
+        const alias = CMC_SYMBOL_ALIAS[t.symbol] ?? t.symbol;
+        const nameMatch =
+          t.name != null &&
+          nameLc !== "" &&
+          nameLc === t.name.trim().toLowerCase();
+        if (sym === t.symbol || sym === alias || nameMatch) {
+          candidates.get(t.symbol)?.push({ rank, cap });
+        }
+      }
+    }
+  };
+  const accept = (): Map<string, SupplyCap> => {
+    const out = new Map<string, SupplyCap>();
+    for (const t of targets) {
+      const known = priceById.get(t.id);
+      const ranked = (candidates.get(t.symbol) ?? []).sort(
+        (a, b) => a.rank - b.rank,
+      );
+      for (const c of ranked) {
+        if (known != null && Math.abs(c.cap.price - known) / known > 0.05) {
+          continue; // a copycat namesake — try the next candidate
+        }
+        out.set(t.symbol, c.cap);
+        break;
+      }
+    }
+    return out;
+  };
+  const page = async (start: number) => {
+    const raw = (await fetchJson(
+      `https://api.coinmarketcap.com/data-api/v3/cryptocurrency/listing?start=${start}&limit=1000&sortBy=market_cap&sortType=desc&convert=USD&cryptoType=all&tagType=all&audited=false`,
+      CMC_HEADERS,
+    )) as { data?: { cryptoCurrencyList?: unknown } };
+    collect(raw.data?.cryptoCurrencyList);
+  };
+  await page(1);
+  let out = accept();
+  if (targets.some((t) => !out.has(t.symbol))) {
+    try {
+      await page(1001);
+      out = accept();
+    } catch (e) {
+      logError("markets: coinmarketcap page 2 failed", e);
+    }
+  }
+  return out;
+}
+
 async function fetchMarkets(
   targets: MarketTarget[],
   opts: { rich: boolean; cgApiKey?: string; llamaCaps?: Map<string, number> },
@@ -674,33 +817,66 @@ async function fetchMarkets(
     if (current.size === 0) {
       throw new Error("defillama prices/current: no prices returned");
     }
-    let caps = new Map<string, PaprikaCap>();
+    let caps = new Map<string, SupplyCap>();
     let source: MarketsResult["source"] = "defillama";
     if (opts.rich) {
-      try {
-        caps = await fetchPaprikaCaps(new Set(targets.map((t) => t.symbol)));
-      } catch (e) {
-        logError("markets: coinpaprika bulk caps failed", e);
+      const priceById = new Map<string, number>();
+      for (const t of targets) {
+        const p = current.get(t.id);
+        if (p) priceById.set(t.id, p.price);
       }
-      // Any symbol the bulk list missed (or the bulk call failed
-      // outright) is retried per token — search + per-coin ticker,
-      // with each candidate's price checked against the DeFiLlama
-      // price before acceptance.
-      const missing = targets.filter((t) => !caps.has(t.symbol));
-      if (missing.length > 0) {
+      // FDV / supplies, primary leg: CoinMarketCap's public listing
+      // (one call, a second page when needed) — see fetchCmcCaps.
+      let cmcCount = 0;
+      try {
+        const cmcCaps = await fetchCmcCaps(targets, priceById);
+        for (const [symbol, cap] of cmcCaps) caps.set(symbol, cap);
+        cmcCount = cmcCaps.size;
+      } catch (e) {
+        logError("markets: coinmarketcap caps failed", e);
+      }
+      // CoinPaprika is a fallback only: it fills the symbols the
+      // CoinMarketCap leg missed — bulk tickers first, then per
+      // token (search + per-coin ticker, each candidate's price
+      // checked against the DeFiLlama price before acceptance).
+      let paprikaCount = 0;
+      const bulkMissing = targets.filter((t) => !caps.has(t.symbol));
+      if (bulkMissing.length > 0) {
         try {
-          const priceById = new Map<string, number>();
-          for (const t of targets) {
-            const p = current.get(t.id);
-            if (p) priceById.set(t.id, p.price);
+          const bulk = await fetchPaprikaCaps(
+            new Set(bulkMissing.map((t) => t.symbol)),
+          );
+          for (const [symbol, cap] of bulk) {
+            if (!caps.has(symbol)) {
+              caps.set(symbol, cap);
+              paprikaCount++;
+            }
           }
-          const perToken = await fetchPaprikaCapsPerToken(missing, priceById);
-          for (const [symbol, cap] of perToken) caps.set(symbol, cap);
         } catch (e) {
-          logError("markets: coinpaprika per-token caps failed", e);
+          logError("markets: coinpaprika bulk caps failed", e);
+        }
+        const missing = targets.filter((t) => !caps.has(t.symbol));
+        if (missing.length > 0) {
+          try {
+            const perToken = await fetchPaprikaCapsPerToken(missing, priceById);
+            for (const [symbol, cap] of perToken) {
+              if (!caps.has(symbol)) {
+                caps.set(symbol, cap);
+                paprikaCount++;
+              }
+            }
+          } catch (e) {
+            logError("markets: coinpaprika per-token caps failed", e);
+          }
         }
       }
-      if (caps.size > 0) source = "defillama+coinpaprika";
+      if (cmcCount > 0 && paprikaCount > 0) {
+        source = "defillama+cmc+coinpaprika";
+      } else if (cmcCount > 0) {
+        source = "defillama+cmc";
+      } else if (paprikaCount > 0) {
+        source = "defillama+coinpaprika";
+      }
     }
     const map = new Map<string, CgMarket>();
     for (const t of targets) {
@@ -736,12 +912,10 @@ async function fetchMarkets(
           entry.circulating_supply = cap.marketCap / cur.price;
         }
         entry.total_supply = cap.totalSupply;
-        const fdvSupply =
-          cap.maxSupply != null && cap.maxSupply > 0
-            ? cap.maxSupply
-            : cap.totalSupply;
         entry.fully_diluted_valuation =
-          fdvSupply != null && fdvSupply > 0 ? cur.price * fdvSupply : null;
+          cap.fdvSupply != null && cap.fdvSupply > 0
+            ? cur.price * cap.fdvSupply
+            : null;
       }
       map.set(t.id, entry);
     }
@@ -1445,7 +1619,7 @@ async function buildLivePayload(cgApiKey?: string): Promise<DashboardPayload> {
     .slice(0, 50);
 
   // Market data is the resilient chain (CoinGecko → DeFiLlama →
-  // DeFiLlama mcap index + CoinPaprika supplies): it never throws,
+  // DeFiLlama mcap index + CoinMarketCap / CoinPaprika supplies): it never throws,
   // so a price-source outage can no longer kill the whole revenue
   // refresh the way the bare CoinGecko call did (HTTP 403 from the
   // deployed Worker's egress — no snapshot was ever stored). On
