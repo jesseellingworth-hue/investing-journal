@@ -119,6 +119,53 @@ live / exactly 50 rows (49 priced, 39 with caps). With normal
 network the CoinGecko primary path is unchanged (50/50 priced with
 full caps/FDV/supplies).
 
+## Market-cap / FDV fix (16 Nov 2026) — prices live, caps were not
+
+Follow-up defect on the deployed Worker: prices moved live, but
+market cap and FDV showed "n.r." for all 50 tokens (snapshot
+`marketCapM`/`fdvM` all null, so P / RUN-RATE and P / ANN. BUYBACK
+showed "—"). Worker metrics named the cause: the refresh's single
+CoinPaprika bulk tickers call returned 4xx from Workers egress on
+every run (it was also the only caps source in the fallback chain,
+and it sent no User-Agent), while CoinGecko stayed 403.
+
+The fix, in `src/worker.ts` (mirrored in the Muse artifact's
+`server/src/actions.ts`):
+
+- **Market cap from DeFiLlama's protocol index** — the primary caps
+  source now rides fetches the refresh already makes:
+  `lite/protocols2` parentProtocols (`mcap` by `gecko_id`),
+  `lite/protocols2` protocols (`mcap` by `geckoId`) and `/protocols`
+  (`mcap` by `gecko_id`) are indexed in `fetchDescriptionIndex`;
+  `llamaMcapFor` resolves each token by CoinGecko id, falling back
+  to its parent-protocol entry when the symbol agrees (AERO).
+  Verified live: every claim-filtered universe token resolves
+  (HYPE $15.84B, PUMP $1.34B, SKY $1.26B, UNI $3.16B — matching the
+  research baseline); the only misses are the no-claim stablecoin
+  issuers the claim filter excludes anyway. Circulating supply =
+  cap ÷ the id-keyed DeFiLlama price.
+- **CoinPaprika fixed, in layers** — every Paprika call now sends a
+  browser User-Agent; the bulk tickers call runs first; any symbol
+  it misses is retried per token via search → per-coin ticker
+  (~1KB responses). Search candidates must be active with a
+  positive rank (inactive copycats carry rank 0 and previously won
+  "lowest rank" picks), and a candidate's supplies are accepted
+  only when its price agrees with the DeFiLlama price within 5%.
+  FDV = price × (max supply, else total supply); tickers reporting
+  cap 0 but a real max supply (DBR) still contribute their FDV.
+- **Verified in-build under the deployed condition** (CoinGecko
+  stubbed 403 AND the Paprika bulk call stubbed 403): refresh
+  stored exactly 50 rows — 49 priced, **49 with market cap, 46 with
+  FDV, P / RUN-RATE and P / ANN. BUYBACK computing on 49** (the
+  remaining misses are small dynamically-discovered tokens whose
+  Paprika data is stale or absent — the price guard refuses wrong
+  data rather than filling it). Normal network: 50/50 on every
+  field via CoinGecko, unchanged.
+
+> **Redeploy note (caps fix):** copy the updated `src/worker.ts`
+> into the repo's `dashboard/` and redeploy. No migration,
+> wrangler.toml or client change is needed.
+
 ## Go live — the exact steps still needed
 
 The package is complete; what remains needs Jesse's Cloudflare account
