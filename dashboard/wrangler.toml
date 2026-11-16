@@ -64,3 +64,9 @@ crons = ["0 14 * * *"]
 # requires `Authorization: Bearer <secret>` (the cron trigger calls the
 # handler internally and never needs it):
 #   wrangler secret put REFRESH_SECRET
+#
+# Optional: a free CoinGecko demo API key. CoinGecko 403s this
+# Worker's egress on unauthenticated calls (the 16 Nov 2026 live-data
+# defect); the Worker sends the key as x-cg-demo-api-key when set,
+# and falls back to DeFiLlama prices + CoinPaprika caps without it:
+#   wrangler secret put COINGECKO_API_KEY

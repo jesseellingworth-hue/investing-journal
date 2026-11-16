@@ -1,15 +1,16 @@
 // Actions for the Crypto Revenue Live Dashboard — rebuilt around two
 // separate pipelines:
 //
-// 1. PRICE pipeline (fast): CoinGecko coins/markets for the current
-//    universe's ids, server-cached for 8 seconds so every viewer shares
-//    one upstream call. The client polls getPrices every ~8s and updates
-//    price / market cap / FDV / supplies in place. CoinGecko's free tier
-//    allows roughly 5–15 calls/min per IP; an 8s server cache keeps this
-//    dashboard at ~7 calls/min worst case regardless of viewer count,
-//    and simple/price was rejected because it returns no supplies.
-//    pricesUpdatedAt is stamped to the second and never conflated with
-//    the revenue timestamps.
+// 1. PRICE pipeline (fast): market data for the current universe's
+//    ids from a resilient source chain (see fetchMarkets below):
+//    CoinGecko coins/markets first, DeFiLlama coins prices as the
+//    fallback — CoinGecko 403s the deployed Worker's egress, which
+//    is what froze this dashboard at its baseline — plus CoinPaprika
+//    caps in the refresh pipeline. Server-cached for 8 seconds so
+//    every viewer shares one upstream call; the client polls
+//    getPrices every ~8s and updates price / market cap / FDV /
+//    supplies in place. pricesUpdatedAt is stamped to the second and
+//    never conflated with the revenue timestamps.
 //
 // 2. REVENUE / BUYBACK / LISTING pipeline (slow): DeFiLlama fees
 //    overview (dailyRevenue, dailyFees, dailyHoldersRevenue) + Coinbase
@@ -123,6 +124,10 @@ export interface Env {
   // Optional shared secret for POST /api/refreshDashboard. The cron
   // trigger calls the refresh internally and needs no secret.
   REFRESH_SECRET?: string;
+  // Optional CoinGecko demo API key (`wrangler secret put
+  // COINGECKO_API_KEY`). Sent as x-cg-demo-api-key when set; the
+  // price pipeline falls back to DeFiLlama + CoinPaprika without it.
+  COINGECKO_API_KEY?: string;
 }
 
 const ANNUALISE = 12;
@@ -238,13 +243,47 @@ type Row = z.infer<typeof rowSchema>;
 // Fetch helpers
 // ---------------------------------------------------------------------------
 
-async function fetchJson(url: string): Promise<unknown> {
+class HttpError extends Error {
+  status: number;
+  constructor(url: string, status: number) {
+    super(`${url} -> HTTP ${status}`);
+    this.status = status;
+  }
+}
+
+async function fetchJson(
+  url: string,
+  headers: Record<string, string> = {},
+): Promise<unknown> {
   const res = await fetch(url, {
-    headers: { accept: "application/json" },
+    headers: { accept: "application/json", ...headers },
     signal: AbortSignal.timeout(60_000),
   });
-  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+  if (!res.ok) throw new HttpError(url, res.status);
   return (await res.json()) as unknown;
+}
+
+// Every upstream failure is logged with its context (the message
+// always names the failing URL and HTTP status) so a broken refresh
+// is observable in the Worker logs instead of failing silently, and
+// the handlers below also surface it in their response payloads.
+function logError(context: string, e: unknown): void {
+  const message = e instanceof Error ? e.message : String(e);
+  console.error(`[crypto-dashboard] ${context}: ${message}`);
+}
+
+// Coerce an unknown JSON value to a finite number or null. Upstream
+// APIs occasionally ship totals as strings or omit them; arithmetic
+// on a raw cast would poison group sums with NaN and fail the
+// response-schema check at the edge, so every upstream number that
+// feeds a computed field passes through here.
+function numOrNull(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 interface LlamaEntry {
@@ -259,8 +298,24 @@ interface LlamaEntry {
 async function fetchLlama(dataType: string): Promise<LlamaEntry[]> {
   const data = (await fetchJson(
     `https://api.llama.fi/overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=${dataType}`,
-  )) as { protocols?: LlamaEntry[] };
-  return data.protocols ?? [];
+  )) as { protocols?: unknown };
+  if (!Array.isArray(data.protocols)) {
+    throw new Error(
+      `defillama overview ${dataType}: response has no protocols array`,
+    );
+  }
+  // Tolerant parsing: totals arrive as numbers in the verified API,
+  // but a stray string or missing field degrades to "no data" for
+  // that entry instead of poisoning a group sum.
+  return (data.protocols as Array<Record<string, unknown>>).map((p) => ({
+    slug: typeof p.slug === "string" ? p.slug : undefined,
+    parentProtocol:
+      typeof p.parentProtocol === "string" ? p.parentProtocol : undefined,
+    total7d: numOrNull(p.total7d),
+    total30d: numOrNull(p.total30d),
+    total60dto30d: numOrNull(p.total60dto30d),
+    total1y: numOrNull(p.total1y),
+  }));
 }
 
 interface CgMarket {
@@ -273,15 +328,250 @@ interface CgMarket {
   price_change_percentage_24h?: number | null;
 }
 
-async function fetchCgMarkets(ids: string[]): Promise<Map<string, CgMarket>> {
+// ---------------------------------------------------------------------------
+// Market data (price / caps / supplies) — resilient source chain
+// ---------------------------------------------------------------------------
+//
+// CoinGecko is the primary source (full data in one call), but it is
+// NOT reachable from every egress: verified live 16 Nov 2026, the
+// deployed Cloudflare Worker gets HTTP 403 on every CoinGecko call
+// while DeFiLlama and Coinbase succeed from the same egress — that
+// single failure killed every refresh (no snapshot was ever stored)
+// and 500'd every getPrices call. So market data comes from a chain:
+//
+//  1. CoinGecko coins/markets — full data. 429/5xx get one retry
+//     with backoff; a 401/403 (egress block) trips a 10-minute
+//     backoff so the fallback path stays fast. An optional demo API
+//     key (COINGECKO_API_KEY secret) is sent when configured, which
+//     also lifts the block on some egress networks.
+//  2. DeFiLlama coins prices (coins.llama.fi — the same API family
+//     the charting module uses, verified reachable from the Worker):
+//     current price for every id in one batched call, 24h change
+//     from the batched historical call. Identity-safe: keyed by the
+//     exact CoinGecko id.
+//  3. Rich mode only (the refresh pipeline): CoinPaprika's tickers
+//     list fills market cap / supplies for the DeFiLlama-priced
+//     rows. Paprika is keyed by symbol, so a row is accepted only
+//     when Paprika's own price agrees with DeFiLlama's id-keyed
+//     price within 5% — a symbol collision can never attach the
+//     wrong project's cap. FDV = price × (max supply, else total).
+//
+// fetchMarkets never throws: on total failure it returns an empty
+// map plus the combined error, and each caller decides what that
+// means (refresh keeps the previous snapshot; getPrices serves the
+// last stored prices). Every failover is logged.
+
+export interface MarketTarget {
+  id: string;
+  symbol: string;
+}
+
+interface MarketsResult {
+  map: Map<string, CgMarket>;
+  source: "coingecko" | "defillama" | "defillama+coinpaprika" | "none";
+  error: string | null;
+}
+
+let cgBlockedUntil = 0;
+
+async function fetchCgMarketsOnce(
+  ids: string[],
+  apiKey?: string,
+): Promise<Map<string, CgMarket>> {
+  const headers: Record<string, string> = {
+    "user-agent": "Mozilla/5.0 (compatible; CryptoRevenueDashboard/1.0)",
+  };
+  if (apiKey) headers["x-cg-demo-api-key"] = apiKey;
   const raw = await fetchJson(
     `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids.join(",")}&price_change_percentage=24h`,
+    headers,
   );
   const map = new Map<string, CgMarket>();
   if (Array.isArray(raw)) {
-    for (const m of raw as CgMarket[]) map.set(m.id, m);
+    for (const m of raw as Array<Record<string, unknown>>) {
+      if (typeof m.id !== "string") continue;
+      map.set(m.id, {
+        id: m.id,
+        current_price: numOrNull(m.current_price),
+        market_cap: numOrNull(m.market_cap),
+        fully_diluted_valuation: numOrNull(m.fully_diluted_valuation),
+        circulating_supply: numOrNull(m.circulating_supply),
+        total_supply: numOrNull(m.total_supply),
+        price_change_percentage_24h: numOrNull(m.price_change_percentage_24h),
+      });
+    }
   }
   return map;
+}
+
+interface LlamaPrice {
+  price: number;
+  timestamp: number;
+}
+
+async function fetchLlamaPrices(
+  ids: string[],
+  atSec?: number,
+): Promise<Map<string, LlamaPrice>> {
+  const keys = ids.map((id) => `coingecko:${encodeURIComponent(id)}`).join(",");
+  const path = atSec ? `prices/historical/${atSec}` : "prices/current";
+  const raw = (await fetchJson(`https://coins.llama.fi/${path}/${keys}`)) as {
+    coins?: Record<string, { price?: unknown; timestamp?: unknown }>;
+  };
+  const out = new Map<string, LlamaPrice>();
+  for (const id of ids) {
+    const c = raw.coins?.[`coingecko:${id}`];
+    const price = numOrNull(c?.price);
+    if (c && price != null && price > 0) {
+      out.set(id, { price, timestamp: numOrNull(c.timestamp) ?? 0 });
+    }
+  }
+  return out;
+}
+
+interface PaprikaCap {
+  marketCap: number;
+  totalSupply: number | null;
+  maxSupply: number | null;
+  price: number;
+}
+
+async function fetchPaprikaCaps(
+  symbols: Set<string>,
+): Promise<Map<string, PaprikaCap>> {
+  const raw = await fetchJson(
+    "https://api.coinpaprika.com/v1/tickers?quotes=USD",
+  );
+  const best = new Map<
+    string,
+    { rank: number; t: Record<string, unknown> }
+  >();
+  if (Array.isArray(raw)) {
+    for (const t of raw as Array<Record<string, unknown>>) {
+      if (typeof t.symbol !== "string" || !symbols.has(t.symbol)) continue;
+      const rank = numOrNull(t.rank) ?? Number.MAX_SAFE_INTEGER;
+      const prev = best.get(t.symbol);
+      if (!prev || rank < prev.rank) best.set(t.symbol, { rank, t });
+    }
+  }
+  const out = new Map<string, PaprikaCap>();
+  for (const [symbol, { t }] of best) {
+    const quotes = t.quotes as
+      | { USD?: { price?: unknown; market_cap?: unknown } }
+      | undefined;
+    const price = numOrNull(quotes?.USD?.price);
+    const marketCap = numOrNull(quotes?.USD?.market_cap);
+    if (price == null || price <= 0 || marketCap == null || marketCap <= 0) {
+      continue;
+    }
+    out.set(symbol, {
+      marketCap,
+      totalSupply: numOrNull(t.total_supply),
+      maxSupply: numOrNull(t.max_supply),
+      price,
+    });
+  }
+  return out;
+}
+
+async function fetchMarkets(
+  targets: MarketTarget[],
+  opts: { rich: boolean; cgApiKey?: string },
+): Promise<MarketsResult> {
+  const ids = targets.map((t) => t.id);
+  if (ids.length === 0) return { map: new Map(), source: "none", error: null };
+  let cgError: string | null = null;
+
+  if (Date.now() < cgBlockedUntil) {
+    cgError = "coingecko markets skipped (egress-block backoff)";
+  } else {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const map = await fetchCgMarketsOnce(ids, opts.cgApiKey);
+        if (map.size > 0) return { map, source: "coingecko", error: null };
+        cgError = "coingecko markets: empty response";
+        break;
+      } catch (e) {
+        cgError = e instanceof Error ? e.message : String(e);
+        const status = e instanceof HttpError ? e.status : 0;
+        if (status === 401 || status === 403) {
+          cgBlockedUntil = Date.now() + 10 * 60 * 1000;
+          break;
+        }
+        if (attempt === 0 && (status === 429 || status >= 500 || status === 0)) {
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+        break;
+      }
+    }
+  }
+
+  try {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const [current, dayAgo] = await Promise.all([
+      fetchLlamaPrices(ids),
+      fetchLlamaPrices(ids, nowSec - 86_400).catch(
+        () => new Map<string, LlamaPrice>(),
+      ),
+    ]);
+    if (current.size === 0) {
+      throw new Error("defillama prices/current: no prices returned");
+    }
+    let caps = new Map<string, PaprikaCap>();
+    let source: MarketsResult["source"] = "defillama";
+    if (opts.rich) {
+      try {
+        caps = await fetchPaprikaCaps(new Set(targets.map((t) => t.symbol)));
+        if (caps.size > 0) source = "defillama+coinpaprika";
+      } catch (e) {
+        logError("markets: coinpaprika caps fallback failed", e);
+      }
+    }
+    const map = new Map<string, CgMarket>();
+    for (const t of targets) {
+      const cur = current.get(t.id);
+      if (!cur) continue;
+      const prev = dayAgo.get(t.id);
+      const entry: CgMarket = {
+        id: t.id,
+        current_price: cur.price,
+        price_change_percentage_24h:
+          prev && prev.price > 0
+            ? ((cur.price - prev.price) / prev.price) * 100
+            : null,
+        market_cap: null,
+        fully_diluted_valuation: null,
+        circulating_supply: null,
+        total_supply: null,
+      };
+      const cap = caps.get(t.symbol);
+      if (cap && Math.abs(cap.price - cur.price) / cur.price <= 0.05) {
+        entry.market_cap = cap.marketCap;
+        entry.circulating_supply = cap.marketCap / cur.price;
+        entry.total_supply = cap.totalSupply;
+        const fdvSupply =
+          cap.maxSupply != null && cap.maxSupply > 0
+            ? cap.maxSupply
+            : cap.totalSupply;
+        entry.fully_diluted_valuation =
+          fdvSupply != null && fdvSupply > 0 ? cur.price * fdvSupply : null;
+      }
+      map.set(t.id, entry);
+    }
+    if (cgError) {
+      logError(
+        "markets: coingecko unavailable, served by fallback",
+        new Error(`${cgError} (fallback: ${source})`),
+      );
+    }
+    return { map, source, error: cgError };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const combined = `coingecko: ${cgError ?? "not tried"}; defillama: ${msg}`;
+    logError("markets: all price sources failed", new Error(combined));
+    return { map: new Map(), source: "none", error: combined };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -826,7 +1116,7 @@ function dynamicMeta(
 // Revenue pipeline
 // ---------------------------------------------------------------------------
 
-async function buildLivePayload(): Promise<DashboardPayload> {
+async function buildLivePayload(cgApiKey?: string): Promise<DashboardPayload> {
   // Revenue and buybacks are separate pipelines with separate sources
   // (dailyRevenue vs dailyHoldersRevenue) — stamp each fetch's own
   // completion time so the UI can show a per-source status line.
@@ -911,7 +1201,18 @@ async function buildLivePayload(): Promise<DashboardPayload> {
     .sort((a, b) => b.g.rev7d - a.g.rev7d)
     .slice(0, 50);
 
-  const cg = await fetchCgMarkets(ranked.map((x) => x.meta.cgId));
+  // Market data is the resilient chain (CoinGecko → DeFiLlama →
+  // CoinPaprika caps): it never throws, so a price-source outage can
+  // no longer kill the whole revenue refresh the way the bare
+  // CoinGecko call did (HTTP 403 from the deployed Worker's egress —
+  // no snapshot was ever stored). On total price failure the map is
+  // empty, rows carry null prices, and the callers decide whether
+  // storing that beats the previous snapshot.
+  const markets = await fetchMarkets(
+    ranked.map((x) => ({ id: x.meta.cgId, symbol: x.meta.symbol })),
+    { rich: true, cgApiKey },
+  );
+  const cg = markets.map;
 
   const now = new Date();
   const windowEnd = new Date(now);
@@ -1253,17 +1554,26 @@ const pairSeriesResponse = z.object({
 // and the table is pruned to the newest 60 rows after every write.
 
 async function latestSnapshot(env: Env) {
-  const row = await env.DB.prepare(
-    "SELECT fetched_at, payload FROM snapshots ORDER BY id DESC LIMIT 1",
-  ).first<{ fetched_at: number; payload: string }>();
-  if (!row) return null;
+  // A D1 failure here (e.g. the migration not applied yet) must read
+  // as "no snapshot", never as a 500: getPrices prices the bundled
+  // universe in that case, and getDashboard falls back to the
+  // research baseline.
   try {
+    const row = await env.DB.prepare(
+      "SELECT fetched_at, payload FROM snapshots ORDER BY id DESC LIMIT 1",
+    ).first<{ fetched_at: number; payload: string }>();
+    if (!row) return null;
     const parsed = JSON.parse(row.payload) as DashboardPayload;
     if (parsed.v !== 7) return null;
     return { fetchedAt: new Date(row.fetched_at), payload: parsed };
-  } catch {
+  } catch (e) {
+    logError("latestSnapshot", e);
     return null;
   }
+}
+
+function hasAnyPrice(p: DashboardPayload): boolean {
+  return p.rows.some((r) => r.price != null);
 }
 
 async function storeSnapshot(env: Env, payload: DashboardPayload) {
@@ -1290,10 +1600,23 @@ export async function handleGetDashboard(env: Env): Promise<DashboardPayload> {
     return snap.payload;
   }
   try {
-    const payload = await buildLivePayload();
+    const payload = await buildLivePayload(env.COINGECKO_API_KEY);
+    if (!hasAnyPrice(payload) && snap) {
+      // A refresh that could not price anything must not overwrite
+      // a good snapshot with null prices.
+      logError(
+        "getDashboard refresh",
+        new Error("refreshed payload carries no prices; keeping previous snapshot"),
+      );
+      return {
+        ...snap.payload,
+        error: "Price sources unreachable; showing the last fetched snapshot.",
+      };
+    }
     await storeSnapshot(env, payload);
     return payload;
   } catch (e) {
+    logError("getDashboard refresh", e);
     const message = e instanceof Error ? e.message : String(e);
     if (snap) {
       return {
@@ -1311,7 +1634,22 @@ export async function handleRefreshDashboard(
   env: Env,
 ): Promise<{ ok: boolean; fetchedAt: string | null; error: string | null }> {
   try {
-    const payload = await buildLivePayload();
+    const payload = await buildLivePayload(env.COINGECKO_API_KEY);
+    if (!hasAnyPrice(payload)) {
+      const existing = await latestSnapshot(env);
+      if (existing) {
+        const msg = "all price sources failed; previous snapshot kept";
+        logError("refreshDashboard", new Error(msg));
+        return { ok: false, fetchedAt: null, error: msg };
+      }
+      // No snapshot at all yet: a revenue-only snapshot still beats
+      // the frozen research baseline, and getPrices prices its rows
+      // live on every poll.
+      logError(
+        "refreshDashboard",
+        new Error("storing revenue-only snapshot (no price source reachable)"),
+      );
+    }
     await storeSnapshot(env, payload);
     priceCacheL1 = null;
     try {
@@ -1321,6 +1659,7 @@ export async function handleRefreshDashboard(
     }
     return { ok: true, fetchedAt: payload.revenueFetchedAt, error: null };
   } catch (e) {
+    logError("refreshDashboard", e);
     return {
       ok: false,
       fetchedAt: null,
@@ -1337,33 +1676,68 @@ export async function handleGetPrices(
   }
   const shared = await cacheGetJson(PRICE_CACHE_URL, PRICE_CACHE_MS);
   if (shared) {
-    const payload = pricesResponse.parse(shared);
-    priceCacheL1 = { at: Date.now(), payload };
-    return payload;
+    try {
+      const payload = pricesResponse.parse(shared);
+      priceCacheL1 = { at: Date.now(), payload };
+      return payload;
+    } catch (e) {
+      // A malformed cache entry must not 500 the poll — refetch live.
+      logError("getPrices cache parse", e);
+    }
   }
   const snap = await latestSnapshot(env);
-  const ids = snap
-    ? snap.payload.rows.map((r) => r.cgId)
-    : TOKEN_META.slice(0, 50).map((m) => m.cgId);
-  const cg = await fetchCgMarkets(ids);
-  const payload: z.infer<typeof pricesResponse> = {
-    pricesUpdatedAt: new Date().toISOString(),
-    prices: ids.map((id) => {
-      const m = cg.get(id);
-      return {
-        cgId: id,
-        price: m?.current_price ?? null,
-        priceChange24hPct: m?.price_change_percentage_24h ?? null,
-        marketCapM: m?.market_cap != null ? m.market_cap / 1e6 : null,
-        fdvM: m?.fully_diluted_valuation != null ? m.fully_diluted_valuation / 1e6 : null,
-        circSupply: m?.circulating_supply ?? null,
-        totalSupply: m?.total_supply ?? null,
-      };
-    }),
+  // No snapshot yet (fresh deploy, empty D1): price the bundled
+  // universe — the first 50 research-mapped tokens — instead of
+  // failing. Prices update from the bundled list from the first poll.
+  const targets: MarketTarget[] = snap
+    ? snap.payload.rows.map((r) => ({ id: r.cgId, symbol: r.symbol }))
+    : TOKEN_META.slice(0, 50).map((m) => ({ id: m.cgId, symbol: m.symbol }));
+  const { map: cg } = await fetchMarkets(targets, {
+    rich: false,
+    cgApiKey: env.COINGECKO_API_KEY,
+  });
+  if (cg.size > 0) {
+    const payload: z.infer<typeof pricesResponse> = {
+      pricesUpdatedAt: new Date().toISOString(),
+      prices: targets.map(({ id }) => {
+        const m = cg.get(id);
+        return {
+          cgId: id,
+          price: m?.current_price ?? null,
+          priceChange24hPct: m?.price_change_percentage_24h ?? null,
+          marketCapM: m?.market_cap != null ? m.market_cap / 1e6 : null,
+          fdvM: m?.fully_diluted_valuation != null ? m.fully_diluted_valuation / 1e6 : null,
+          circSupply: m?.circulating_supply ?? null,
+          totalSupply: m?.total_supply ?? null,
+        };
+      }),
+    };
+    priceCacheL1 = { at: Date.now(), payload };
+    await cachePutJson(PRICE_CACHE_URL, payload, PRICE_CACHE_MS / 1000);
+    return payload;
+  }
+  // Every live price source failed: serve the last stored prices
+  // (snapshot rows, or the research baseline when no snapshot exists)
+  // under their ORIGINAL timestamp — stale data labelled stale,
+  // never a 500. Deliberately not cached, so the next poll retries
+  // the live sources immediately.
+  logError(
+    "getPrices",
+    new Error("all price sources failed; serving last stored prices"),
+  );
+  const stored = snap ? snap.payload : buildBaselinePayload(null);
+  return {
+    pricesUpdatedAt: stored.pricesUpdatedAt ?? BASELINE_AS_OF,
+    prices: stored.rows.map((r) => ({
+      cgId: r.cgId,
+      price: r.price,
+      priceChange24hPct: r.priceChange24hPct,
+      marketCapM: r.marketCapM,
+      fdvM: r.fdvM,
+      circSupply: r.circSupply,
+      totalSupply: r.totalSupply,
+    })),
   };
-  priceCacheL1 = { at: Date.now(), payload };
-  await cachePutJson(PRICE_CACHE_URL, payload, PRICE_CACHE_MS / 1000);
-  return payload;
 }
 
 const pairSeriesRequest = z.object({
@@ -1484,6 +1858,7 @@ export default {
       const indexUrl = new URL("/dashboard/", url.origin);
       return env.ASSETS.fetch(new Request(indexUrl, request));
     } catch (e) {
+      logError(`fetch ${path}`, e);
       return json({ error: e instanceof Error ? e.message : String(e) }, 500);
     }
   },
@@ -1492,6 +1867,14 @@ export default {
   // cron triggers are UTC (see [triggers] in ../wrangler.toml for
   // the 06:00 America/Los_Angeles mapping and its DST note).
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(handleRefreshDashboard(env).then(() => undefined));
+    ctx.waitUntil(
+      handleRefreshDashboard(env).then((r) => {
+        if (r.ok) {
+          console.log(`[crypto-dashboard] scheduled refresh ok at ${r.fetchedAt}`);
+        } else {
+          logError("scheduled refresh", new Error(r.error ?? "unknown error"));
+        }
+      }),
+    );
   },
 };
