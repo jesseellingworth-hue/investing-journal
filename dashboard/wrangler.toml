@@ -1,0 +1,66 @@
+# Crypto Revenue Dashboard — Cloudflare Workers deployment package.
+#
+# This dashboard ships as a route on the EXISTING Investing Journal
+# Worker (investing-journal.longfund.workers.dev), not as a new site:
+#
+#   * Merge the [assets], [[d1_databases]] and [triggers] blocks below
+#     into the journal Worker's own wrangler.toml, and add src/worker.ts's
+#     handlers to its entrypoint behind the /dashboard/* route (the
+#     journal's essay routes keep matching first — they are exact paths,
+#     /dashboard/* is additive). src/worker.ts also works standalone as
+#     its own Worker entrypoint if you prefer to deploy it separately
+#     and attach only the route.
+#   * `name` below is only used for a standalone deploy; when merging,
+#     keep the journal Worker's existing name and routes and add the
+#     one dashboard route shown.
+
+name = "investing-journal"
+main = "src/worker.ts"
+compatibility_date = "2025-11-01"
+workers_dev = true
+
+# The dashboard route. The journal's existing routes (essays, index)
+# are untouched: this pattern only claims /dashboard and below.
+routes = [
+  { pattern = "investing-journal.longfund.workers.dev/dashboard*", zone_name = "longfund.workers.dev" },
+]
+# workers.dev note: routes with a zone_name need the domain on
+# Cloudflare DNS. If the journal Worker is reached only via its
+# workers.dev subdomain, drop `routes` and instead mount this Worker's
+# fetch handler inside the journal entrypoint for paths starting with
+# /dashboard (see README, "Go live", step 3, option B).
+
+# Client bundle: `bun run build:client` writes public/dashboard/
+# (index.html + hashed JS/CSS + the moon artwork). Served by the
+# ASSETS binding that src/worker.ts falls back to for non-API paths.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# D1 — the snapshots table (same schema as the Muse SQLite table:
+# id / fetched_at epoch-ms / payload JSON; pruned to the newest 60
+# rows by the Worker; payloads with v != 7 are ignored on read).
+# Create it once, then run the migration:
+#   wrangler d1 create investing-journal-dashboard
+#   wrangler d1 migrations apply investing-journal-dashboard --remote
+[[d1_databases]]
+binding = "DB"
+database_name = "investing-journal-dashboard"
+database_id = "REPLACE-WITH-D1-DATABASE-ID"
+migrations_dir = "migrations"
+
+# Daily refresh — replaces the Muse space.json managed cron
+# (refreshDashboard, daily 06:00). Wrangler cron triggers are UTC
+# only: 14:00 UTC = 06:00 America/Los_Angeles in standard time (PST);
+# during daylight time (PDT) the refresh runs at 07:00 PT. Cron
+# triggers cannot follow DST — if exact 06:00 PT year-round matters,
+# keep this trigger AND the getDashboard staleness auto-refresh
+# (>30 min) already covers the drift; do not add a second trigger.
+[triggers]
+crons = ["0 14 * * *"]
+
+# Optional: set a shared secret so POST /dashboard/api/refreshDashboard
+# requires `Authorization: Bearer <secret>` (the cron trigger calls the
+# handler internally and never needs it):
+#   wrangler secret put REFRESH_SECRET
